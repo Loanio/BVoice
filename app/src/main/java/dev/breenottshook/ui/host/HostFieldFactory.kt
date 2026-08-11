@@ -1,0 +1,114 @@
+package dev.breenottshook.ui.host
+
+import android.content.Context
+import android.text.InputType
+import android.view.View
+import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
+import android.widget.EditText
+import android.widget.Spinner
+import android.widget.Switch
+import dev.breenottshook.config.TtsConfig
+import dev.breenottshook.ui.SettingsField
+import dev.breenottshook.ui.SettingsFieldType
+import dev.breenottshook.ui.SettingsSchema
+
+data class HostFieldBinding(
+    val field: SettingsField,
+    val editor: View,
+    val readRawValue: () -> String
+)
+
+object HostFieldFactory {
+    val supportedKeys: Set<String>
+        get() = SettingsSchema.fields.mapTo(linkedSetOf()) { it.key }
+
+    fun createAll(context: Context, config: TtsConfig): List<HostFieldBinding> =
+        SettingsSchema.fields.map { field -> create(context, config, field) }
+
+    private fun create(
+        context: Context,
+        config: TtsConfig,
+        field: SettingsField
+    ): HostFieldBinding {
+        val currentValue = read(config, field.key)
+        if (field.key == "character" || field.key == "emotion") {
+            val editor = AutoCompleteTextView(context).apply {
+                hint = field.label
+                contentDescription = field.description
+                setText(currentValue, false)
+                threshold = 0
+            }
+            return HostFieldBinding(field, editor) { editor.text.toString() }
+        }
+        return when (field.type) {
+            SettingsFieldType.BOOLEAN -> {
+                @Suppress("DEPRECATION")
+                val switch = Switch(context).apply {
+                    text = field.label
+                    contentDescription = field.description
+                    isChecked = currentValue.toBoolean()
+                }
+                HostFieldBinding(field, switch) { switch.isChecked.toString() }
+            }
+            SettingsFieldType.CHOICE -> {
+                val spinner = Spinner(context).apply {
+                    contentDescription = field.label
+                    adapter = ArrayAdapter(
+                        context,
+                        android.R.layout.simple_spinner_dropdown_item,
+                        field.choices
+                    )
+                    setSelection(field.choices.indexOf(currentValue).coerceAtLeast(0))
+                }
+                HostFieldBinding(field, spinner) {
+                    spinner.selectedItem?.toString().orEmpty()
+                }
+            }
+            SettingsFieldType.TEXT,
+            SettingsFieldType.INTEGER,
+            SettingsFieldType.DECIMAL -> {
+                val editText = EditText(context).apply {
+                    hint = field.label
+                    contentDescription = field.description
+                    setText(currentValue)
+                    inputType = when (field.type) {
+                        SettingsFieldType.INTEGER -> InputType.TYPE_CLASS_NUMBER or
+                            InputType.TYPE_NUMBER_FLAG_SIGNED
+                        SettingsFieldType.DECIMAL -> InputType.TYPE_CLASS_NUMBER or
+                            InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED
+                        else -> InputType.TYPE_CLASS_TEXT
+                    }
+                }
+                HostFieldBinding(field, editText) { editText.text.toString() }
+            }
+        }
+    }
+
+    private fun read(config: TtsConfig, key: String): String = when (key) {
+        "enabled" -> config.enabled.toString()
+        "baseUrl" -> config.baseUrl
+        "character" -> config.character
+        "emotion" -> config.emotion
+        "useManualVoice" -> config.useManualVoice.toString()
+        "manualCharacter" -> config.manualCharacter
+        "manualEmotion" -> config.manualEmotion
+        "textLanguage" -> config.textLanguage.name
+        "audioFormat" -> config.audioFormat.name
+        "topK" -> config.topK.toString()
+        "topP" -> config.topP.toString()
+        "temperature" -> config.temperature.toString()
+        "batchSize" -> config.batchSize.toString()
+        "speed" -> config.speed.toString()
+        "saveTemp" -> config.saveTemp.toString()
+        "stream" -> config.stream.toString()
+        "connectTimeoutMs" -> config.connectTimeoutMs.toString()
+        "readTimeoutMs" -> config.readTimeoutMs.toString()
+        "fallbackToOriginal" -> config.fallbackToOriginal.toString()
+        "strictMode" -> config.strictMode.toString()
+        "forceModulePlayer" -> config.forceModulePlayer.toString()
+        "logLevel" -> config.logLevel.name
+        "testText" -> config.testText
+        else -> ""
+    }
+}

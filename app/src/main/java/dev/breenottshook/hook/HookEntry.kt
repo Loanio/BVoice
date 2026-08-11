@@ -6,6 +6,6 @@ import dev.breenottshook.config.ConfigContract
 
 class HookEntry : IYukiHookXposedInit {
     override fun onHook() = encase {
-        loadApp(ConfigContract.BREENO_PACKAGE, BreenoHooker())
+        loadApp(ConfigContract.BREENO_PACKAGE, BreenoHooker(), BreenoSettingsHook())
     }
 }
