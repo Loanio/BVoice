@@ -1,0 +1,9 @@
+.gradle/
+.idea/
+.kotlin/
+local.properties
+**/build/
+captures/
+work/
+outputs/*.apk
+.worktrees/
