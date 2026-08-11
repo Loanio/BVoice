@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BreenoTTSHook</string>
+    <string name="xposed_description">使用第三方 GPT-SoVITS 个性化小布助手音色</string>
+</resources>

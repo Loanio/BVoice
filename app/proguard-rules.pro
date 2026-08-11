@@ -1,0 +1,2 @@
+-keep class dev.breenottshook.hook.HookEntry { *; }
+-keep class com.highcapable.yukihookapi.** { *; }
