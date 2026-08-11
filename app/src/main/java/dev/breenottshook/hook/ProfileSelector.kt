@@ -1,0 +1,20 @@
+package dev.breenottshook.hook
+
+sealed interface ProfileSelection {
+    data class Selected(val profile: VersionProfile) : ProfileSelection
+    data class Unsupported(val packageVersion: String) : ProfileSelection
+    data class Ambiguous(val profileIds: List<String>) : ProfileSelection
+}
+
+class ProfileSelector(
+    private val profiles: List<VersionProfile>
+) {
+    fun select(packageVersion: String, classProbe: ClassProbe): ProfileSelection {
+        val matches = profiles.filter { it.matches(packageVersion, classProbe) }
+        return when (matches.size) {
+            0 -> ProfileSelection.Unsupported(packageVersion)
+            1 -> ProfileSelection.Selected(matches.single())
+            else -> ProfileSelection.Ambiguous(matches.map { it.id })
+        }
+    }
+}
