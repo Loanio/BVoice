@@ -27,7 +27,7 @@ class BreenoHooker : YukiBaseHooker() {
     private fun installForContext(context: Context) {
         val status = HookStatusPublisher(context)
         val packageVersion = context.packageManager.packageVersionName(packageName)
-        val selector = ProfileSelector(listOf(Breeno1183Profile()))
+        val selector = ProfileSelector(listOf(Breeno1183Profile(), Breeno1299Profile()))
         when (val selection = selector.select(
             packageVersion = packageVersion,
             classProbe = ClassProbe { it.toClassOrNull() != null }
@@ -53,13 +53,11 @@ class BreenoHooker : YukiBaseHooker() {
         profile: VersionProfile,
         status: HookStatusPublisher
     ) {
-        val socketClass = Breeno1183Profile.REAL_WEB_SOCKET_CLASS.toClassOrNull()
+        val transport = profile.transport
+        val socketClass = transport.className.toClassOrNull()
             ?: return status.publish("disabled", "RealWebSocket disappeared after profile selection")
         val sendMethods = socketClass.declaredMethods.filter { method ->
-            method.name == "send" &&
-                method.parameterTypes.contentEquals(arrayOf(String::class.java)) &&
-                (method.returnType == Boolean::class.javaPrimitiveType ||
-                    method.returnType == Boolean::class.javaObjectType)
+            method.matches(transport.send)
         }
         if (sendMethods.size != 1) {
             status.publish("disabled", "send(String) candidates=${sendMethods.size}")
@@ -84,12 +82,12 @@ class BreenoHooker : YukiBaseHooker() {
         }
 
         socketClass.declaredMethods
-            .filter { it.name == "cancel" && it.parameterCount == 0 }
+            .filter { it.matches(transport.cancel) }
             .forEach { method ->
                 method.hook { before { runtime.cancelActive("original websocket cancelled") } }
             }
         socketClass.declaredMethods
-            .filter { it.name == "close" && it.parameterCount == 2 }
+            .filter { it.matches(transport.close) }
             .forEach { method ->
                 method.hook { before { runtime.cancelActive("original websocket closed") } }
             }
@@ -123,4 +121,9 @@ class BreenoHooker : YukiBaseHooker() {
     @Suppress("DEPRECATION")
     private fun PackageManager.packageVersionName(packageName: String): String =
         getPackageInfo(packageName, 0).versionName.orEmpty()
+
+    private fun Method.matches(descriptor: MethodDescriptor): Boolean =
+        name == descriptor.name &&
+            parameterTypes.map { it.name } == descriptor.parameterTypeNames &&
+            returnType.name == descriptor.returnTypeName
 }

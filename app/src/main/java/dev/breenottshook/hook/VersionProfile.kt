@@ -16,5 +16,6 @@ data class HookCapabilities(
 interface VersionProfile {
     val id: String
     val capabilities: HookCapabilities
+    val transport: TransportDescriptor
     fun matches(packageVersion: String, classProbe: ClassProbe): Boolean
 }

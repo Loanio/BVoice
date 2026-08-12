@@ -1,7 +1,7 @@
 package dev.breenottshook.hook
 
-class Breeno1183Profile : VersionProfile {
-    override val id: String = "breeno-11.8.3"
+class Breeno1299Profile : VersionProfile {
+    override val id: String = "breeno-12.9.9"
     override val transport: TransportDescriptor = verifiedRealWebSocketTransport
 
     override val capabilities = HookCapabilities(
@@ -10,14 +10,13 @@ class Breeno1183Profile : VersionProfile {
         originalPlayer = false,
         stopInterception = false,
         settingsInjection = false,
-        reason = "11.8.3 原 TTS 业务入口、播放器与设置宿主描述符尚未经 APK/JADX 验证"
+        reason = "12.9.9 已验证传输签名；原播放器、停止入口与设置宿主仍保持安全降级"
     )
 
     override fun matches(packageVersion: String, classProbe: ClassProbe): Boolean =
         packageVersion == SUPPORTED_VERSION && classProbe.exists(transport.className)
 
     companion object {
-        const val SUPPORTED_VERSION = "11.8.3"
-        const val REAL_WEB_SOCKET_CLASS = "okhttp3.internal.ws.RealWebSocket"
+        const val SUPPORTED_VERSION = "12.9.9"
     }
 }
