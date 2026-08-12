@@ -8,7 +8,7 @@
 
 Hook 通过受限 `ContentProvider` 写入简短状态：
 
-- `active`：11.8.3 传输回退已安装。
+- `active`：11.8.3 WebSocket 或 12.9.9 `TTSEngineImpl` 路由已安装。
 - `intercepted / playing / completed`：第三方会话阶段。
 - `failed / cancelled / fallback_failed`：失败、打断或原 TTS 恢复失败。
 - `unsupported / disabled`：版本、类或方法不唯一，安全停用。
@@ -24,7 +24,7 @@ Hook 通过受限 `ContentProvider` 写入简短状态：
 
 ### 连接测试成功但小布仍用原音色
 
-检查“启用第三方 TTS”、严格模式和 Hook 状态。若 `RealWebSocket` 类路径与目标 APK不同，需要提供 APK/JADX 结果更新版本描述符。
+检查“启用第三方 TTS”、严格模式和 Hook 状态。12.9.9 应显示 `engine=true;transport=false`；若引擎方法签名变化，需要提供 APK/JADX 结果更新版本描述符。
 
 ### 小布无声
 

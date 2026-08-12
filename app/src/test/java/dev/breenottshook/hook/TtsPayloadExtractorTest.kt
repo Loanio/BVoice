@@ -53,4 +53,31 @@ class TtsPayloadExtractorTest {
         assertTrue(diagnostic.contains("chars=${original.length}"))
         assertTrue(diagnostic.matches(Regex("chars=\\d+,sha256=[0-9a-f]{12}")))
     }
+
+    @Test
+    fun `websocket diagnostics expose routing shape without payload values`() {
+        val secretText = "不能泄露的播报正文"
+        val diagnostic = HookDiagnostics.websocket(
+            "wss://voice.example.test/v2/speech?token=secret-token",
+            """{"event":"synthesis","data":{"text":"$secretText"}}"""
+        )
+
+        assertEquals(
+            "scheme=wss,host=voice.example.test,path=/v2/speech,chars=49,keys=data|event,dataKeys=text",
+            diagnostic
+        )
+        assertFalse(diagnostic.contains(secretText))
+        assertFalse(diagnostic.contains("secret-token"))
+    }
+
+    @Test
+    fun `stream diagnostics expose counts and digest without chunk values`() {
+        val secret = "不可写入日志的流式正文"
+        val diagnostic = HookDiagnostics.stream(listOf("第一段", secret))
+
+        assertTrue(diagnostic.startsWith("chunks=2,chars=${"第一段".length + secret.length},sha256="))
+        assertFalse(diagnostic.contains(secret))
+        assertFalse(diagnostic.contains("第一段"))
+        assertTrue(diagnostic.matches(Regex("chunks=2,chars=\\d+,sha256=[0-9a-f]{12}")))
+    }
 }

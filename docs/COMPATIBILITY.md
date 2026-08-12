@@ -7,7 +7,7 @@
 | URL 门控传输回退 | 自动测试通过 | 只接受 `wss` + 精确 HeyTap 主机 + `/tts/ws`，允许签名查询参数 |
 | 模块 AudioTrack 播放 | 编译和状态机测试通过 | 尚未在 ColorOS 15 真机验证音频焦点与中断 |
 | 11.8.3 传输 Profile | 静态验证 | APK 为 11.8.3（110803），存在 `RealWebSocket.send(String): boolean`、`cancel()`、`close(int,String)` |
-| 12.9.9 传输 Profile | 静态验证 | APK 为 12.9.9（120909），存在相同的唯一公开 WebSocket 方法形状 |
+| 12.9.9 Engine Profile | 静态验证 | APK 为 12.9.9（120909），`TTSEngineImpl` 的 `C0/P0/O0/J0` 已按精确签名解析 |
 | 小布原播放器 | 禁用 | 无播放器方法和完成回调证据；当前使用模块播放器 |
 | 小布设置页注入 | 安装器已实现、默认禁用 | 原生全量编辑器已完成；宿主描述符列表为空，等待 APK 验证 |
 | Android 15 / ColorOS 15 实机 | 部分验证 | OnePlus PLC110 已连接；12.9.9 为当前 `/data/app` 生效版本，端到端播报待新版 APK 安装验证 |
@@ -20,7 +20,7 @@
 3. 原播放器的 PCM/音频入口、音频焦点行为与完成/错误回调。
 4. 设置 Activity/Fragment 的精确类名与 `onCreate`/视图生命周期。
 
-在这些信息确认前，两个 Profile 均明确报告 `originalPlayer=false`、`businessTtsEntry=false`，设置宿主描述符保持空列表。传输 Profile 只精确支持 11.8.3 与 12.9.9，未来版本不自动命中。
+在这些信息确认前，两个 Profile 均明确报告 `originalPlayer=false`；11.8.3 保持 WebSocket 回退，12.9.9 报告 `businessTtsEntry=true` 并走 Engine 路由，未来版本不自动命中。
 
 ## 目标 APK 静态证据
 
