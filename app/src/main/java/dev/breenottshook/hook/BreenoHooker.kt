@@ -7,7 +7,12 @@ import com.highcapable.yukihookapi.hook.factory.toClassOrNull
 import dev.breenottshook.config.ConfigContract
 import dev.breenottshook.config.ConfigRepository
 import dev.breenottshook.config.HookConfigCache
+import dev.breenottshook.api.GptSovitsClient
+import dev.breenottshook.playback.AudioTrackSink
+import dev.breenottshook.session.GptSovitsEngine
+import dev.breenottshook.session.TtsSessionCoordinator
 import java.lang.reflect.Method
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,18 +45,95 @@ class BreenoHooker : YukiBaseHooker() {
                 state = "disabled",
                 detail = "ambiguous=${selection.profileIds.joinToString()}"
             )
-            is ProfileSelection.Selected -> when (selection.profile.ttsRoute) {
+            is ProfileSelection.Selected -> when (val route = selection.profile.ttsRoute) {
                 is TtsRoute.WebSocket -> installTransportFallback(
                     context = context,
                     profile = selection.profile,
                     status = status
                 )
-                is TtsRoute.Engine -> status.publish(
-                    state = "disabled",
-                    detail = "profile=${selection.profile.id};engine installer unavailable"
+                is TtsRoute.Engine -> installEngine(
+                    context = context,
+                    profile = selection.profile,
+                    route = route,
+                    status = status
                 )
             }
         }
+    }
+
+    private fun installEngine(
+        context: Context,
+        profile: VersionProfile,
+        route: TtsRoute.Engine,
+        status: HookStatusPublisher
+    ) {
+        val clazz = route.descriptor.className.toClassOrNull()
+            ?: return status.publish("disabled", "engine class disappeared after profile selection")
+        val resolved = EngineTtsInstaller.resolve(clazz, route.descriptor)
+        if (resolved !is EngineInstallResult.Ready) {
+            return status.publish("disabled", (resolved as EngineInstallResult.Disabled).reason)
+        }
+        val configCache = HookConfigCache(ConfigRepository(context.contentResolver))
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val coordinator = TtsSessionCoordinator(
+            scope = scope,
+            configProvider = { configCache.current().value },
+            synthesisEngine = GptSovitsEngine(GptSovitsClient(okhttp3.OkHttpClient())),
+            sinkProvider = { AudioTrackSink(context.applicationContext) }
+        )
+        val runtime = BreenoEngineRuntime(
+            configProvider = { configCache.refresh(); configCache.current().value },
+            submit = { coordinator.submit(it) },
+            cancel = { coordinator.cancelActive(it) },
+            scope = scope
+        )
+        val methods = resolved.methods
+        val bypass = ConcurrentHashMap.newKeySet<String>()
+        fun key(method: Method, receiver: Any, args: Array<Any?>): String =
+            buildString {
+                append(System.identityHashCode(receiver)).append(':').append(method.name)
+                args.forEach { append(':').append(System.identityHashCode(it)) }
+            }
+        methods.speak.hook {
+            before {
+                val receiver = instanceOrNull ?: return@before
+                val callKey = key(methods.speak, receiver, args)
+                if (bypass.remove(callKey)) return@before
+                val text = args.getOrNull(0) as? String ?: return@before
+                val listener = args.getOrNull(1)
+                val original: () -> Unit = { bypass += callKey; runCatching { methods.speak.invoke(receiver, *args) }; Unit }
+                if (runtime.onSpeak(text, listener, original)) result = null
+            }
+        }
+        methods.streamStart.hook {
+            before {
+                val receiver = instanceOrNull ?: return@before
+                val callKey = key(methods.streamStart, receiver, args)
+                if (bypass.remove(callKey)) return@before
+                val original: () -> Unit = { bypass += callKey; runCatching { methods.streamStart.invoke(receiver, *args) }; Unit }
+                if (runtime.onStreamStart(args.getOrNull(0), args.getOrNull(1), original)) result = null
+            }
+        }
+        methods.streamChunk.hook {
+            before {
+                val receiver = instanceOrNull ?: return@before
+                val callKey = key(methods.streamChunk, receiver, args)
+                if (bypass.remove(callKey)) return@before
+                val text = args.getOrNull(0) as? String ?: return@before
+                val original: () -> Unit = { bypass += callKey; runCatching { methods.streamChunk.invoke(receiver, *args) }; Unit }
+                if (runtime.onStreamChunk(text, original)) result = null
+            }
+        }
+        methods.streamEnd.hook {
+            before {
+                val receiver = instanceOrNull ?: return@before
+                val callKey = key(methods.streamEnd, receiver, args)
+                if (bypass.remove(callKey)) return@before
+                val original: () -> Unit = { bypass += callKey; runCatching { methods.streamEnd.invoke(receiver, *args) }; Unit }
+                if (runtime.onStreamEnd(original)) result = null
+            }
+        }
+        status.publish("active", "profile=${profile.id};engine=true;transport=false;originalPlayer=false")
     }
 
     private fun installTransportFallback(
@@ -99,14 +181,14 @@ class BreenoHooker : YukiBaseHooker() {
                 method.hook { before { runtime.cancelActive("original websocket closed") } }
             }
 
-        installHostGatedCleartextPolicy(runtime)
+        installHostGatedCleartextPolicy(runtime::shouldPermitCleartext)
         status.publish(
             state = "active",
             detail = "profile=${profile.id};transport=true;originalPlayer=false"
         )
     }
 
-    private fun installHostGatedCleartextPolicy(runtime: BreenoTransportRuntime) {
+    private fun installHostGatedCleartextPolicy(shouldPermit: (String) -> Boolean) {
         val policyClass = runCatching {
             Class.forName("android.security.NetworkSecurityPolicy", false, appClassLoader)
         }.getOrNull() ?: return
@@ -119,7 +201,7 @@ class BreenoHooker : YukiBaseHooker() {
                 method.hook {
                     before {
                         val host = args.firstOrNull() as? String ?: return@before
-                        if (runtime.shouldPermitCleartext(host)) result = true
+                        if (shouldPermit(host)) result = true
                     }
                 }
             }
