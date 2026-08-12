@@ -16,6 +16,6 @@ data class HookCapabilities(
 interface VersionProfile {
     val id: String
     val capabilities: HookCapabilities
-    val transport: TransportDescriptor
+    val ttsRoute: TtsRoute
     fun matches(packageVersion: String, classProbe: ClassProbe): Boolean
 }

@@ -40,11 +40,17 @@ class BreenoHooker : YukiBaseHooker() {
                 state = "disabled",
                 detail = "ambiguous=${selection.profileIds.joinToString()}"
             )
-            is ProfileSelection.Selected -> installTransportFallback(
-                context = context,
-                profile = selection.profile,
-                status = status
-            )
+            is ProfileSelection.Selected -> when (selection.profile.ttsRoute) {
+                is TtsRoute.WebSocket -> installTransportFallback(
+                    context = context,
+                    profile = selection.profile,
+                    status = status
+                )
+                is TtsRoute.Engine -> status.publish(
+                    state = "disabled",
+                    detail = "profile=${selection.profile.id};engine installer unavailable"
+                )
+            }
         }
     }
 
@@ -53,7 +59,8 @@ class BreenoHooker : YukiBaseHooker() {
         profile: VersionProfile,
         status: HookStatusPublisher
     ) {
-        val transport = profile.transport
+        val transport = (profile.ttsRoute as? TtsRoute.WebSocket)?.descriptor
+            ?: return status.publish("disabled", "websocket route missing")
         val socketClass = transport.className.toClassOrNull()
             ?: return status.publish("disabled", "RealWebSocket disappeared after profile selection")
         val sendMethods = socketClass.declaredMethods.filter { method ->

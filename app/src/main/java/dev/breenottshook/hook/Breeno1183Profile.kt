@@ -2,7 +2,7 @@ package dev.breenottshook.hook
 
 class Breeno1183Profile : VersionProfile {
     override val id: String = "breeno-11.8.3"
-    override val transport: TransportDescriptor = verifiedRealWebSocketTransport
+    override val ttsRoute: TtsRoute = TtsRoute.WebSocket(verifiedRealWebSocketTransport)
 
     override val capabilities = HookCapabilities(
         transportFallback = true,
@@ -14,7 +14,9 @@ class Breeno1183Profile : VersionProfile {
     )
 
     override fun matches(packageVersion: String, classProbe: ClassProbe): Boolean =
-        packageVersion == SUPPORTED_VERSION && classProbe.exists(transport.className)
+        packageVersion == SUPPORTED_VERSION && classProbe.exists(
+            (ttsRoute as TtsRoute.WebSocket).descriptor.className
+        )
 
     companion object {
         const val SUPPORTED_VERSION = "11.8.3"

@@ -20,13 +20,13 @@ class ProfileSelectorTest {
     }
 
     @Test
-    fun `exact 12_9_9 profile is selected only when its transport class exists`() {
+    fun `exact 12_9_9 profile is selected only when its engine class exists`() {
         val profile = Breeno1299Profile()
         val selector = ProfileSelector(listOf(Breeno1183Profile(), profile))
 
         val result = selector.select(
             packageVersion = "12.9.9",
-            classProbe = ClassProbe { it == profile.transport.className }
+            classProbe = ClassProbe { it == (profile.ttsRoute as TtsRoute.Engine).descriptor.className }
         )
 
         assertEquals(ProfileSelection.Selected(profile), result)
@@ -65,12 +65,12 @@ class ProfileSelectorTest {
     }
 
     @Test
-    fun `12_9_9 declares transport fallback but leaves unverified capabilities disabled`() {
+    fun `12_9_9 declares verified business entry without transport fallback`() {
         val capabilities = Breeno1299Profile().capabilities
 
-        assertTrue(capabilities.transportFallback)
+        assertFalse(capabilities.transportFallback)
         assertFalse(capabilities.originalPlayer)
-        assertFalse(capabilities.businessTtsEntry)
+        assertTrue(capabilities.businessTtsEntry)
         assertFalse(capabilities.settingsInjection)
         assertTrue(capabilities.reason.isNotBlank())
     }
@@ -80,7 +80,7 @@ class ProfileSelectorTest {
         private val version: String
     ) : VersionProfile {
         override val capabilities = HookCapabilities(transportFallback = true)
-        override val transport = verifiedRealWebSocketTransport
+        override val ttsRoute = TtsRoute.WebSocket(verifiedRealWebSocketTransport)
         override fun matches(packageVersion: String, classProbe: ClassProbe): Boolean =
             packageVersion == version
     }
