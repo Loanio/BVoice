@@ -29,7 +29,20 @@ class SettingsHostSelector(
     }
 }
 
-object Breeno1183SettingsHosts {
-    // Intentionally empty until the installed 11.8.3 APK is inspected.
-    val descriptors: List<SettingsHostDescriptor> = emptyList()
+object BreenoSettingsHosts {
+    private const val MAIN_SETTINGS_ACTIVITY =
+        "com.heytap.speechassist.home.settings.ui.SettingsActivity"
+
+    val descriptors: List<SettingsHostDescriptor> = listOf(
+        SettingsHostDescriptor(
+            id = "breeno-11.8.3-main-settings",
+            versionName = "11.8.3",
+            className = MAIN_SETTINGS_ACTIVITY
+        ),
+        SettingsHostDescriptor(
+            id = "breeno-12.9.9-main-settings",
+            versionName = "12.9.9",
+            className = MAIN_SETTINGS_ACTIVITY
+        )
+    )
 }

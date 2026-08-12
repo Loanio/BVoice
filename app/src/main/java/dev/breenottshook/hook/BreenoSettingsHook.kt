@@ -1,6 +1,7 @@
 package dev.breenottshook.hook
 
 import android.app.Activity
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.ViewGroup
@@ -11,10 +12,20 @@ import dev.breenottshook.ui.host.HostSettingsDialog
 
 class BreenoSettingsHook : YukiBaseHooker() {
     override fun onHook() {
-        val context = appContext ?: return
+        DeferredInstaller<Context>(::installForContext).start(
+            current = appContext,
+            defer = { install ->
+                onAppLifecycle {
+                    onCreate { install(this) }
+                }
+            }
+        )
+    }
+
+    private fun installForContext(context: Context) {
         val status = HookStatusPublisher(context)
         val versionName = context.packageManager.packageVersionName(packageName)
-        val descriptors = Breeno1183SettingsHosts.descriptors
+        val descriptors = BreenoSettingsHosts.descriptors
         val availableClasses = descriptors.mapNotNull { descriptor ->
             descriptor.className.takeIf { it.toClassOrNull() != null }
         }.toSet()

@@ -45,7 +45,18 @@ class SettingsHostSelectorTest {
     }
 
     @Test
-    fun `unverified 11_8_3 build ships with no guessed settings host`() {
-        assertTrue(Breeno1183SettingsHosts.descriptors.isEmpty())
+    fun `verified main settings activity is selected for both supported versions`() {
+        val expectedClass = "com.heytap.speechassist.home.settings.ui.SettingsActivity"
+
+        listOf("11.8.3", "12.9.9").forEach { version ->
+            val result = SettingsHostSelector(BreenoSettingsHosts.descriptors).select(
+                version,
+                setOf(expectedClass)
+            )
+
+            val selected = result as SettingsHostSelection.Selected
+            assertEquals(version, selected.descriptor.versionName)
+            assertEquals(expectedClass, selected.descriptor.className)
+        }
     }
 }
