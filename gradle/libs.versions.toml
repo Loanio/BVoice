@@ -1,6 +1,7 @@
 [versions]
 agp = "8.9.1"
 kotlin = "2.1.10"
+ksp = "2.1.10-1.0.31"
 activityCompose = "1.10.1"
 composeBom = "2025.03.01"
 coroutines = "1.10.1"
@@ -29,6 +30,7 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "okhttp" }
 yukihook-api = { module = "com.highcapable.yukihookapi:api", version.ref = "yukiHook" }
+yukihook-ksp-xposed = { module = "com.highcapable.yukihookapi:ksp-xposed", version.ref = "yukiHook" }
 xposed-api = { module = "de.robv.android.xposed:api", version.ref = "xposed" }
 junit = { module = "junit:junit", version.ref = "junit" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
@@ -39,3 +41,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

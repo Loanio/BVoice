@@ -14,7 +14,17 @@ import kotlinx.coroutines.SupervisorJob
 
 class BreenoHooker : YukiBaseHooker() {
     override fun onHook() {
-        val context = appContext ?: return
+        DeferredInstaller<Context>(::installForContext).start(
+            current = appContext,
+            defer = { install ->
+                onAppLifecycle {
+                    onCreate { install(this) }
+                }
+            }
+        )
+    }
+
+    private fun installForContext(context: Context) {
         val status = HookStatusPublisher(context)
         val packageVersion = context.packageManager.packageVersionName(packageName)
         val selector = ProfileSelector(listOf(Breeno1183Profile()))
