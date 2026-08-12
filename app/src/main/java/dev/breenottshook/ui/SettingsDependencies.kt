@@ -55,7 +55,11 @@ class SessionPreviewController(
         sinkProvider = { AudioTrackSink(context.applicationContext) }
     )
 
-    override suspend fun preview(text: String, config: TtsConfig): Result<Unit> = runCatching {
+    override suspend fun preview(
+        text: String,
+        config: TtsConfig,
+        listener: PreviewListener
+    ): Result<Unit> = runCatching {
         require(text.isNotBlank()) { "试听文本不能为空" }
         activeConfig = config
         coordinator.submit(
@@ -63,10 +67,10 @@ class SessionPreviewController(
                 text = text,
                 originalCall = OriginalCall { },
                 callbacks = object : TtsCallbacks {
-                    override fun onStarted() = Unit
-                    override fun onCompleted() = Unit
-                    override fun onError(error: Throwable) = Unit
-                    override fun onCancelled(reason: String) = Unit
+                    override fun onStarted() = listener.onStarted()
+                    override fun onCompleted() = listener.onCompleted()
+                    override fun onError(error: Throwable) = listener.onError(error)
+                    override fun onCancelled(reason: String) = listener.onCancelled(reason)
                 }
             )
         )

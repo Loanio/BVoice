@@ -23,6 +23,7 @@ import dev.breenottshook.config.ValidationResult
 import dev.breenottshook.ui.ApiConnectionTester
 import dev.breenottshook.ui.ContentProviderSettingsRepository
 import dev.breenottshook.ui.SessionPreviewController
+import dev.breenottshook.ui.PreviewListener
 import dev.breenottshook.ui.SettingsRepository
 import dev.breenottshook.ui.SettingsSchema
 import dev.breenottshook.ui.SettingsSection
@@ -163,7 +164,16 @@ class HostSettingsDialog(
     private fun preview() {
         val config = currentDraft() ?: return toast("请先修正输入格式")
         scope.launch {
-            val result = previewController.preview(config.testText, config)
+            val result = previewController.preview(
+                config.testText,
+                config,
+                object : PreviewListener {
+                    override fun onStarted() = Unit
+                    override fun onCompleted() = Unit
+                    override fun onError(error: Throwable) = toast("试听失败：${error.message}")
+                    override fun onCancelled(reason: String) = Unit
+                }
+            )
             if (result.isFailure) toast("试听失败：${result.exceptionOrNull()?.message}")
         }
     }

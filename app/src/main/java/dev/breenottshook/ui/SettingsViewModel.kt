@@ -30,8 +30,15 @@ fun interface ConnectionTester {
 }
 
 interface PreviewController {
-    suspend fun preview(text: String, config: TtsConfig): Result<Unit>
+    suspend fun preview(text: String, config: TtsConfig, listener: PreviewListener): Result<Unit>
     suspend fun stop()
+}
+
+interface PreviewListener {
+    fun onStarted()
+    fun onCompleted()
+    fun onError(error: Throwable)
+    fun onCancelled(reason: String)
 }
 
 data class SettingsUiState(
@@ -57,6 +64,7 @@ class SettingsViewModel(
     private val connectionTester: ConnectionTester,
     private val previewController: PreviewController
 ) : ViewModel() {
+    private var previewGeneration = 0L
     private val initial = repository.read()
     private val mutableState = MutableStateFlow(initial.toUiState())
     val state: StateFlow<SettingsUiState> = mutableState.asStateFlow()
@@ -157,12 +165,29 @@ class SettingsViewModel(
 
     fun preview() {
         val draft = mutableState.value.draft
+        val generation = ++previewGeneration
         viewModelScope.launch {
             mutableState.value = mutableState.value.copy(isBusy = true, message = null)
-            val result = previewController.preview(draft.testText, draft)
+            val result = previewController.preview(
+                draft.testText,
+                draft,
+                object : PreviewListener {
+                    override fun onStarted() = updatePreview(generation, isPreviewing = true)
+
+                    override fun onCompleted() = updatePreview(generation, isPreviewing = false)
+
+                    override fun onError(error: Throwable) = updatePreview(
+                        generation,
+                        isPreviewing = false,
+                        message = "试听失败：${error.message ?: error::class.java.simpleName}"
+                    )
+
+                    override fun onCancelled(reason: String) =
+                        updatePreview(generation, isPreviewing = false)
+                }
+            )
             mutableState.value = mutableState.value.copy(
                 isBusy = false,
-                isPreviewing = result.isSuccess,
                 message = result.exceptionOrNull()?.let {
                     "试听失败：${it.message ?: it::class.java.simpleName}"
                 }
@@ -171,10 +196,20 @@ class SettingsViewModel(
     }
 
     fun stopPreview() {
+        previewGeneration++
         viewModelScope.launch {
             previewController.stop()
             mutableState.value = mutableState.value.copy(isPreviewing = false, isBusy = false)
         }
+    }
+
+    private fun updatePreview(generation: Long, isPreviewing: Boolean, message: String? = null) {
+        if (generation != previewGeneration) return
+        mutableState.value = mutableState.value.copy(
+            isPreviewing = isPreviewing,
+            isBusy = false,
+            message = message ?: mutableState.value.message
+        )
     }
 
     fun resetDefaults() {

@@ -157,6 +157,36 @@ class SettingsViewModelTest {
         assertEquals(1, preview.stopCalls)
     }
 
+    @Test
+    fun `preview completion error and cancellation reset preview state`() = runTest(dispatcher) {
+        val preview = RecordingPreviewController()
+        val viewModel = viewModel(
+            repository = FakeSettingsRepository(ConfigSnapshot(0, TtsConfig())),
+            preview = preview
+        )
+
+        viewModel.preview()
+        advanceUntilIdle()
+        preview.listener?.onStarted()
+        assertTrue(viewModel.state.value.isPreviewing)
+
+        preview.listener?.onCompleted()
+        assertFalse(viewModel.state.value.isPreviewing)
+
+        viewModel.preview()
+        advanceUntilIdle()
+        preview.listener?.onStarted()
+        preview.listener?.onError(IllegalStateException("decoder failed"))
+        assertFalse(viewModel.state.value.isPreviewing)
+        assertTrue(viewModel.state.value.message.orEmpty().contains("decoder failed"))
+
+        viewModel.preview()
+        advanceUntilIdle()
+        preview.listener?.onStarted()
+        preview.listener?.onCancelled("interrupted")
+        assertFalse(viewModel.state.value.isPreviewing)
+    }
+
     private fun viewModel(
         repository: FakeSettingsRepository,
         catalog: CatalogGateway = FakeCatalogGateway(
@@ -206,10 +236,16 @@ class SettingsViewModelTest {
         var lastText: String? = null
         var lastConfig: TtsConfig? = null
         var stopCalls = 0
+        var listener: PreviewListener? = null
 
-        override suspend fun preview(text: String, config: TtsConfig): Result<Unit> {
+        override suspend fun preview(
+            text: String,
+            config: TtsConfig,
+            listener: PreviewListener
+        ): Result<Unit> {
             lastText = text
             lastConfig = config
+            this.listener = listener
             return Result.success(Unit)
         }
 
