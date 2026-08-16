@@ -38,3 +38,7 @@ One intermediate run hit a transient Windows file-lock error while bundling `cla
 ## Review fix
 
 The production wiring was subsequently included in the follow-up commit rather than left as an unstaged worktree hunk. The constructor now passes both `cancelHandler = { coordinator.cancelActive(it) }` and `submitStream = { utterances, callbacks, originalCall -> coordinator.submitStream(utterances, callbacks, originalCall) }`.
+
+## Dependency review fix
+
+`BreenoHooker` also uses `AndroidApiDiagnostics`; `ApiDiagnostics.kt` was previously untracked in the shared worktree. It is now included in the follow-up fix commit so a clean checkout has the complete production dependency.
