@@ -34,6 +34,14 @@ class BreenoHostCallbacksTest {
     }
 
     @Test
+    fun `stream bridge forwards utterance start index`() {
+        val events = mutableListOf<String>()
+        val callbacks = BreenoHostCallbacks.stream(StreamListener(events))
+        callbacks.onUtteranceStarted(3)
+        assertEquals(listOf("utterance:3"), events)
+    }
+
+    @Test
     fun `null and incomplete listeners are safe`() {
         val callbacks = BreenoHostCallbacks.normal(null)
         callbacks.onStarted()
@@ -51,6 +59,7 @@ class BreenoHostCallbacksTest {
 
     class StreamListener(private val events: MutableList<String>) {
         fun onSpeakBegin() { events += "begin" }
+        fun onUtteranceStarted(index: Int) { events += "utterance:$index" }
         fun onEnd() { events += "end" }
         fun onCompleted(error: Any?) { events += "completed:${error?.javaClass?.simpleName ?: "null"}" }
     }

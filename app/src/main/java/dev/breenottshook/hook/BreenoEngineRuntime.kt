@@ -4,6 +4,8 @@ import dev.breenottshook.config.TtsConfig
 import dev.breenottshook.session.OriginalCall
 import dev.breenottshook.session.TtsCallbacks
 import dev.breenottshook.session.TtsInvocation
+import dev.breenottshook.session.TtsUtterance
+import dev.breenottshook.session.splitUtterances
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -11,7 +13,10 @@ import kotlinx.coroutines.launch
 class BreenoEngineRuntime(
     private val configProvider: () -> TtsConfig,
     private val submit: suspend (TtsInvocation) -> Unit,
-    private val cancel: suspend (String) -> Unit,
+    private val submitStream: suspend (List<TtsUtterance>, TtsCallbacks, OriginalCall) -> Unit = { utterances, callbacks, original ->
+        submit(TtsInvocation(utterances.joinToString("") { it.text }, original, callbacks))
+    },
+    private val cancelHandler: suspend (String) -> Unit,
     private val scope: CoroutineScope? = null,
     private val diagnostics: (String) -> Unit = {}
 ) {
@@ -21,7 +26,9 @@ class BreenoEngineRuntime(
     private var streamEndOriginal: (() -> Unit)? = null
 
     fun onSpeak(text: String, listener: Any?, original: () -> Unit): Boolean {
-        if (!configProvider().enabled) return false
+        val config = configProvider()
+        diagnostics("engine_speak enabled=${config.enabled};chars=${text.length}")
+        if (!config.enabled) return false
         launch {
             submit(invocation(text, BreenoHostCallbacks.normal(listener), original))
         }
@@ -29,7 +36,9 @@ class BreenoEngineRuntime(
     }
 
     fun onStreamStart(listener: Any?, bundle: Any?, original: () -> Unit): Boolean {
-        if (!configProvider().enabled) return false
+        val config = configProvider()
+        diagnostics("engine_stream_start enabled=${config.enabled}")
+        if (!config.enabled) return false
         accumulator.start(listener, bundle)?.let { replay(it, streamStartOriginal, streamChunkOriginals, streamEndOriginal) }
         streamStartOriginal = original
         streamChunkOriginals = mutableListOf()
@@ -38,34 +47,53 @@ class BreenoEngineRuntime(
     }
 
     fun onStreamChunk(text: String, original: () -> Unit): Boolean {
-        if (!configProvider().enabled) return false
-        accumulator.append(text)
+        val config = configProvider()
+        diagnostics("engine_stream_chunk enabled=${config.enabled};chars=${text.length}")
+        if (!config.enabled) return false
+        if (accumulator.append(text) == AppendResult.Ignored) {
+            // The host's “read full text” action can emit O0/J0 without P0.
+            // Create an implicit generation so this path still uses third-party TTS.
+            accumulator.start(newListener = null, newBundle = null)
+            streamStartOriginal = null
+            streamChunkOriginals = mutableListOf()
+            streamEndOriginal = null
+            accumulator.append(text)
+        }
         streamChunkOriginals += original
         return true
     }
 
     fun onStreamEnd(original: () -> Unit): Boolean {
-        if (!configProvider().enabled) return false
+        val config = configProvider()
+        diagnostics("engine_stream_end enabled=${config.enabled}")
+        if (!config.enabled) return false
         streamEndOriginal = original
-        when (val finished = accumulator.finish()) {
-            FinishedStream.Empty -> Unit
+        val start = streamStartOriginal
+        val chunks = streamChunkOriginals.toList()
+        val end = streamEndOriginal
+        val intercepted = when (val finished = accumulator.finish()) {
+            FinishedStream.Empty -> false
             is FinishedStream.Ready -> launch {
-                submit(invocation(
-                    finished.text,
-                    BreenoHostCallbacks.stream(finished.fallback.listener),
-                    { replayCall(finished.fallback, streamStartOriginal, streamChunkOriginals, streamEndOriginal).resume() }
-                ))
+                val callbacks = BreenoHostCallbacks.stream(finished.fallback.listener)
+                submitStream(
+                    splitUtterances(listOf(finished.text)),
+                    callbacks,
+                    { replayCall(finished.fallback, start, chunks, end).resume() }
+                )
+            }.let { true }
+            is FinishedStream.Overflow -> {
+                replay(finished.fallback, start, chunks, end)
+                true
             }
-            is FinishedStream.Overflow -> replay(finished.fallback, streamStartOriginal, streamChunkOriginals, streamEndOriginal)
         }
         clearStreamOriginals()
-        return true
+        return intercepted
     }
 
     fun cancel(reason: String) {
         accumulator.cancel()?.let { replay(it, streamStartOriginal, streamChunkOriginals, streamEndOriginal) }
         clearStreamOriginals()
-        launch { cancel(reason) }
+        launch { cancelHandler(reason) }
     }
 
     private fun invocation(text: String, callbacks: TtsCallbacks, original: () -> Unit) =

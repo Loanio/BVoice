@@ -20,7 +20,8 @@ object BreenoHostCallbacks {
         listener = listener,
         startName = "onSpeakBegin",
         completeName = "onEnd",
-        streamCompleteName = "onCompleted"
+        streamCompleteName = "onCompleted",
+        utteranceStartName = "onUtteranceStarted"
     )
 
     private class ReflectiveCallbacks(
@@ -30,12 +31,17 @@ object BreenoHostCallbacks {
         private val errorName: String? = null,
         private val cancelName: String? = null,
         private val streamCompleteName: String? = null,
+        private val utteranceStartName: String? = null,
         private val diagnostic: (String, Throwable?) -> Unit = { _, _ -> }
     ) : TtsCallbacks {
         private var terminal = false
 
         override fun onStarted() {
             invoke(startName)
+        }
+
+        override fun onUtteranceStarted(index: Int) {
+            utteranceStartName?.let { invoke(it, index) }
         }
 
         @Synchronized

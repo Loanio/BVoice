@@ -10,12 +10,27 @@ import org.junit.Test
 
 class BreenoEngineRuntimeTest {
     @Test
+    fun `normal speak records a privacy safe disabled diagnostic`() = runTest {
+        val diagnostics = mutableListOf<String>()
+        val runtime = BreenoEngineRuntime(
+            configProvider = { TtsConfig(enabled = false) },
+            submit = {},
+            cancelHandler = {},
+            diagnostics = { diagnostics += it }
+        )
+
+        assertFalse(runtime.onSpeak("text", null) {})
+
+        assertEquals(listOf("engine_speak enabled=false;chars=4"), diagnostics)
+    }
+
+    @Test
     fun `disabled config leaves every host method untouched`() = runTest {
         val submitted = mutableListOf<TtsInvocation>()
         val runtime = BreenoEngineRuntime(
             configProvider = { TtsConfig(enabled = false) },
             submit = { submitted += it },
-            cancel = {}
+            cancelHandler = {}
         )
         assertFalse(runtime.onSpeak("text", null) {})
         assertFalse(runtime.onStreamStart(null, null) {})
@@ -30,7 +45,7 @@ class BreenoEngineRuntimeTest {
         val runtime = BreenoEngineRuntime(
             configProvider = { TtsConfig(enabled = true) },
             submit = { submitted += it },
-            cancel = {}
+            cancelHandler = {}
         )
         assertTrue(runtime.onSpeak("hello", null) {})
         assertEquals(listOf("hello"), submitted.map { it.text })
@@ -39,16 +54,63 @@ class BreenoEngineRuntimeTest {
     @Test
     fun `stream chunks submit one concatenated invocation at end`() = runTest {
         val submitted = mutableListOf<TtsInvocation>()
+        val diagnostics = mutableListOf<String>()
         val runtime = BreenoEngineRuntime(
             configProvider = { TtsConfig(enabled = true) },
             submit = { submitted += it },
-            cancel = {}
+            cancelHandler = {},
+            diagnostics = { diagnostics += it }
         )
         assertTrue(runtime.onStreamStart(null, null) {})
         assertTrue(runtime.onStreamChunk("第一段") {})
         assertTrue(runtime.onStreamChunk("第二段") {})
         assertTrue(runtime.onStreamEnd {})
         assertEquals(listOf("第一段第二段"), submitted.map { it.text })
+        assertEquals(
+            listOf(
+                "engine_stream_start enabled=true",
+                "engine_stream_chunk enabled=true;chars=3",
+                "engine_stream_chunk enabled=true;chars=3",
+                "engine_stream_end enabled=true"
+            ),
+            diagnostics
+        )
+    }
+
+    @Test
+    fun `stream chunks are split into utterances and submitted as a stream`() = runTest {
+        val submitted = mutableListOf<List<String>>()
+        val runtime = BreenoEngineRuntime(
+            configProvider = { TtsConfig(enabled = true) },
+            submit = {},
+            submitStream = { utterances, _, _ -> submitted += utterances.map { it.text } },
+            cancelHandler = {}
+        )
+
+        runtime.onStreamStart(null, null) {}
+        runtime.onStreamChunk("第一句。第二句！") {}
+        runtime.onStreamEnd {}
+
+        assertEquals(listOf(listOf("第一句。", "第二句！")), submitted)
+    }
+
+    @Test
+    fun `stream invocation fallback retains original calls after stream end`() = runTest {
+        val submitted = mutableListOf<TtsInvocation>()
+        val events = mutableListOf<String>()
+        val runtime = BreenoEngineRuntime(
+            configProvider = { TtsConfig(enabled = true) },
+            submit = { submitted += it },
+            cancelHandler = {}
+        )
+
+        runtime.onStreamStart(null, null) { events += "start" }
+        runtime.onStreamChunk("第一段") { events += "chunk-1" }
+        runtime.onStreamChunk("第二段") { events += "chunk-2" }
+        runtime.onStreamEnd { events += "end" }
+        submitted.single().originalCall.resume()
+
+        assertEquals(listOf("start", "chunk-1", "chunk-2", "end"), events)
     }
 
     @Test
@@ -57,12 +119,40 @@ class BreenoEngineRuntimeTest {
         val runtime = BreenoEngineRuntime(
             configProvider = { TtsConfig(enabled = true) },
             submit = {},
-            cancel = {}
+            cancelHandler = {}
         )
         runtime.onStreamStart(null, null) { events += "start" }
         runtime.onStreamChunk("a") { events += "chunk-a" }
         runtime.onStreamChunk("b") { events += "chunk-b" }
         runtime.onStreamStart(null, null) { events += "new-start" }
         assertEquals(listOf("start", "chunk-a", "chunk-b"), events)
+    }
+
+    @Test
+    fun `cancel delegates to coordinator exactly once`() = runTest {
+        val reasons = mutableListOf<String>()
+        val runtime = BreenoEngineRuntime(
+            configProvider = { TtsConfig(enabled = true) },
+            submit = {},
+            cancelHandler = { reasons += it }
+        )
+
+        runtime.cancel("user stop")
+
+        assertEquals(listOf("user stop"), reasons)
+    }
+
+    @Test
+    fun `stream chunk without a start creates an implicit third party stream`() = runTest {
+        val submitted = mutableListOf<TtsInvocation>()
+        val runtime = BreenoEngineRuntime(
+            configProvider = { TtsConfig(enabled = true) },
+            submit = { submitted += it },
+            cancelHandler = {}
+        )
+
+        assertTrue(runtime.onStreamChunk("全文", {}))
+        assertTrue(runtime.onStreamEnd {})
+        assertEquals(listOf("全文"), submitted.map { it.text })
     }
 }
