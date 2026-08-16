@@ -17,4 +17,16 @@ class ProfileSelector(
             else -> ProfileSelection.Ambiguous(matches.map { it.id })
         }
     }
+
+    fun selectEnginePreferred(
+        packageVersion: String,
+        classProbe: ClassProbe,
+        engineProfileId: String
+    ): ProfileSelection {
+        val engineProfile = profiles.firstOrNull { profile ->
+            profile.id == engineProfileId &&
+                (profile.ttsRoute as? TtsRoute.Engine)?.descriptor?.className?.let(classProbe::exists) == true
+        }
+        return engineProfile?.let(ProfileSelection::Selected) ?: select(packageVersion, classProbe)
+    }
 }

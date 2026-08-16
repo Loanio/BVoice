@@ -6,22 +6,22 @@ class Breeno1299Profile : VersionProfile {
         EngineTtsDescriptor(
             className = "com.heytap.speechassist.core.engine.TTSEngineImpl",
             speak = MethodDescriptor(
-                "m39754C0",
+                "D0",
                 listOf(
                     "java.lang.String",
                     "km.w",
                     "android.os.Bundle",
-                    "com.heytap.speechassist.sdk.TTSEngine\${'$'}SlpTtsCallBack"
+                    "com.heytap.speechassist.sdk.TTSEngine\$SlpTtsCallBack"
                 ),
                 "void"
             ),
             streamStart = MethodDescriptor(
-                "m39779P0",
+                "G",
                 listOf("com.heytap.speechassist.sdk.tts.StreamTtsListener", "android.os.Bundle"),
                 "void"
             ),
-            streamChunk = MethodDescriptor("m39777O0", listOf("java.lang.String"), "void"),
-            streamEnd = MethodDescriptor("m39768J0", emptyList(), "void")
+            streamChunk = MethodDescriptor("O0", listOf("java.lang.String"), "void"),
+            streamEnd = MethodDescriptor("J0", emptyList(), "void")
         )
     )
 
@@ -40,6 +40,8 @@ class Breeno1299Profile : VersionProfile {
         )
 
     companion object {
+        const val ID = "breeno-12.9.9"
+        const val ENGINE_CLASS = "com.heytap.speechassist.core.engine.TTSEngineImpl"
         const val SUPPORTED_VERSION = "12.9.9"
     }
 }

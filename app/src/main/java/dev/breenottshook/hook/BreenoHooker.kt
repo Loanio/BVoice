@@ -36,11 +36,31 @@ class BreenoHooker : YukiBaseHooker() {
         val status = HookStatusPublisher(context)
         runCatching {
             val packageVersion = context.packageManager.packageVersionName(packageName)
-            val selector = ProfileSelector(listOf(Breeno1183Profile(), Breeno1299Profile()))
-            when (val selection = selector.select(
-                packageVersion = packageVersion,
-                classProbe = ClassProbe { it.toClassOrNull() != null }
-            )) {
+            val profiles = listOf(Breeno1183Profile(), Breeno1299Profile())
+            val selector = ProfileSelector(profiles)
+            val engineProfile = Breeno1299Profile()
+            val engineRoute = engineProfile.ttsRoute as TtsRoute.Engine
+            val engineResolved = runCatching {
+                val engineClass = Class.forName(
+                    engineRoute.descriptor.className,
+                    false,
+                    appClassLoader
+                )
+                EngineTtsInstaller.resolve(engineClass, engineRoute.descriptor) is EngineInstallResult.Ready
+            }.getOrDefault(false)
+            Log.i(
+                LOG_TAG,
+                "engine_install engine_probe=${engineRoute.descriptor.className};resolved=$engineResolved;packageVersion=$packageVersion"
+            )
+            val selection = if (engineResolved) {
+                ProfileSelection.Selected(engineProfile)
+            } else {
+                selector.select(
+                    packageVersion = packageVersion,
+                    classProbe = ClassProbe { it.toClassOrNull() != null }
+                )
+            }
+            when (selection) {
                 is ProfileSelection.Unsupported -> status.publish(
                     state = "unsupported",
                     detail = "version=${selection.packageVersion}"
