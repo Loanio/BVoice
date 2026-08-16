@@ -14,3 +14,7 @@ This makes the coordinator's `onUtteranceStarted` callback occur after the first
 ## Concern
 
 The Android `AudioTrack` itself is platform-backed, so the focused unit test covers the start gate contract; the sink integration path was verified by compilation and code review of the first-write ordering.
+
+## Self-contained follow-up
+
+The follow-up fix commit also includes the playback support sources required by `AudioTrackSink` (`PcmWriteLoop.kt`, `AudioTrackRecoveryPolicy.kt`, and `StartupBufferGate.kt`) so a clean checkout does not rely on previously untracked worktree files.
