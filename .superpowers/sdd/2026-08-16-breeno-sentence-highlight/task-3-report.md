@@ -33,4 +33,8 @@ One intermediate run hit a transient Windows file-lock error while bundling `cla
 
 - Reflection remains compatible with listeners declaring any `onUtteranceStarted` method with one parameter, matching the existing resolver strategy.
 - The default runtime adapter preserves current test/caller behavior, while production wiring uses `submitStream`.
-- `BreenoHooker.kt` already contains unrelated worktree changes; its stream-wiring hunk should be included by the parent integration commit rather than independently staging the whole file here.
+- `BreenoHooker.kt` also contains unrelated pre-existing worktree changes; the review-fix commit includes the complete currently modified file so the production constructor wiring is committed and independently compilable.
+
+## Review fix
+
+The production wiring was subsequently included in the follow-up commit rather than left as an unstaged worktree hunk. The constructor now passes both `cancelHandler = { coordinator.cancelActive(it) }` and `submitStream = { utterances, callbacks, originalCall -> coordinator.submitStream(utterances, callbacks, originalCall) }`.

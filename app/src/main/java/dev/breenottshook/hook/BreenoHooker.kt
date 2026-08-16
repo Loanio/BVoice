@@ -2,11 +2,13 @@ package dev.breenottshook.hook
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.util.Log
 import com.highcapable.yukihookapi.hook.entity.YukiBaseHooker
 import com.highcapable.yukihookapi.hook.factory.toClassOrNull
 import dev.breenottshook.config.ConfigContract
 import dev.breenottshook.config.ConfigRepository
 import dev.breenottshook.config.HookConfigCache
+import dev.breenottshook.api.AndroidApiDiagnostics
 import dev.breenottshook.api.GptSovitsClient
 import dev.breenottshook.playback.AudioTrackSink
 import dev.breenottshook.session.GptSovitsEngine
@@ -30,34 +32,39 @@ class BreenoHooker : YukiBaseHooker() {
     }
 
     private fun installForContext(context: Context) {
+        Log.i(LOG_TAG, "engine_install stage=begin")
         val status = HookStatusPublisher(context)
-        val packageVersion = context.packageManager.packageVersionName(packageName)
-        val selector = ProfileSelector(listOf(Breeno1183Profile(), Breeno1299Profile()))
-        when (val selection = selector.select(
-            packageVersion = packageVersion,
-            classProbe = ClassProbe { it.toClassOrNull() != null }
-        )) {
-            is ProfileSelection.Unsupported -> status.publish(
-                state = "unsupported",
-                detail = "version=${selection.packageVersion}"
-            )
-            is ProfileSelection.Ambiguous -> status.publish(
-                state = "disabled",
-                detail = "ambiguous=${selection.profileIds.joinToString()}"
-            )
-            is ProfileSelection.Selected -> when (val route = selection.profile.ttsRoute) {
-                is TtsRoute.WebSocket -> installTransportFallback(
-                    context = context,
-                    profile = selection.profile,
-                    status = status
+        runCatching {
+            val packageVersion = context.packageManager.packageVersionName(packageName)
+            val selector = ProfileSelector(listOf(Breeno1183Profile(), Breeno1299Profile()))
+            when (val selection = selector.select(
+                packageVersion = packageVersion,
+                classProbe = ClassProbe { it.toClassOrNull() != null }
+            )) {
+                is ProfileSelection.Unsupported -> status.publish(
+                    state = "unsupported",
+                    detail = "version=${selection.packageVersion}"
                 )
-                is TtsRoute.Engine -> installEngine(
-                    context = context,
-                    profile = selection.profile,
-                    route = route,
-                    status = status
+                is ProfileSelection.Ambiguous -> status.publish(
+                    state = "disabled",
+                    detail = "ambiguous=${selection.profileIds.joinToString()}"
                 )
+                is ProfileSelection.Selected -> when (val route = selection.profile.ttsRoute) {
+                    is TtsRoute.WebSocket -> installTransportFallback(
+                        context = context,
+                        profile = selection.profile,
+                        status = status
+                    )
+                    is TtsRoute.Engine -> installEngine(
+                        context = context,
+                        profile = selection.profile,
+                        route = route,
+                        status = status
+                    )
+                }
             }
+        }.onFailure { error ->
+            Log.e(LOG_TAG, "engine_install stage=failed;type=${error.javaClass.simpleName}", error)
         }
     }
 
@@ -73,19 +80,24 @@ class BreenoHooker : YukiBaseHooker() {
         if (resolved !is EngineInstallResult.Ready) {
             return status.publish("disabled", (resolved as EngineInstallResult.Disabled).reason)
         }
+        Log.i(LOG_TAG, "engine_install stage=resolved")
         val configCache = HookConfigCache(ConfigRepository(context.contentResolver))
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val coordinator = TtsSessionCoordinator(
             scope = scope,
             configProvider = { configCache.current().value },
-            synthesisEngine = GptSovitsEngine(GptSovitsClient(okhttp3.OkHttpClient())),
+            synthesisEngine = GptSovitsEngine(GptSovitsClient(okhttp3.OkHttpClient(), diagnostics = AndroidApiDiagnostics)),
             sinkProvider = { AudioTrackSink(context.applicationContext) }
         )
         val runtime = BreenoEngineRuntime(
             configProvider = { configCache.refresh(); configCache.current().value },
             submit = { coordinator.submit(it) },
-            cancel = { coordinator.cancelActive(it) },
-            scope = scope
+            submitStream = { utterances, callbacks, originalCall ->
+                coordinator.submitStream(utterances, callbacks, originalCall)
+            },
+            cancelHandler = { coordinator.cancelActive(it) },
+            scope = scope,
+            diagnostics = { message -> Log.i(LOG_TAG, message) }
         )
         val methods = resolved.methods
         val bypass = ConcurrentHashMap.newKeySet<String>()
@@ -105,6 +117,7 @@ class BreenoHooker : YukiBaseHooker() {
                 if (runtime.onSpeak(text, listener, original)) result = null
             }
         }
+        Log.i(LOG_TAG, "engine_install stage=hooked;method=${methods.speak.name}")
         methods.streamStart.hook {
             before {
                 val receiver = instanceOrNull ?: return@before
@@ -114,6 +127,7 @@ class BreenoHooker : YukiBaseHooker() {
                 if (runtime.onStreamStart(args.getOrNull(0), args.getOrNull(1), original)) result = null
             }
         }
+        Log.i(LOG_TAG, "engine_install stage=hooked;method=${methods.streamStart.name}")
         methods.streamChunk.hook {
             before {
                 val receiver = instanceOrNull ?: return@before
@@ -124,6 +138,7 @@ class BreenoHooker : YukiBaseHooker() {
                 if (runtime.onStreamChunk(text, original)) result = null
             }
         }
+        Log.i(LOG_TAG, "engine_install stage=hooked;method=${methods.streamChunk.name}")
         methods.streamEnd.hook {
             before {
                 val receiver = instanceOrNull ?: return@before
@@ -133,6 +148,7 @@ class BreenoHooker : YukiBaseHooker() {
                 if (runtime.onStreamEnd(original)) result = null
             }
         }
+        Log.i(LOG_TAG, "engine_install stage=hooked;method=${methods.streamEnd.name}")
         status.publish("active", "profile=${profile.id};engine=true;transport=false;originalPlayer=false")
     }
 
@@ -215,4 +231,8 @@ class BreenoHooker : YukiBaseHooker() {
         name == descriptor.name &&
             parameterTypes.map { it.name } == descriptor.parameterTypeNames &&
             returnType.name == descriptor.returnTypeName
+
+    private companion object {
+        const val LOG_TAG = "BreenoTTSHook"
+    }
 }
