@@ -248,6 +248,7 @@ class TtsSessionCoordinatorTest {
         assertEquals(1, originalCalls)
         assertEquals(0, callbacks.errorCount)
         assertEquals(emptyList<Int>(), callbacks.utteranceStarts)
+        assertEquals(TtsSessionState.Failed(1, "fallback"), coordinator.state.value)
     }
 
     @Test
@@ -315,6 +316,76 @@ class TtsSessionCoordinatorTest {
     }
 
     @Test
+    fun `superseded stream cannot write a later decoded segment after an in flight write`() = runTest {
+        val firstWriteEntered = CompletableDeferred<Unit>()
+        val oldSink = CancellationIgnoringFirstWriteSink(firstWriteEntered)
+        val newSink = RecordingSink()
+        var sinkRequests = 0
+        val oldCallbacks = RecordingCallbacks()
+        val newCallbacks = RecordingCallbacks()
+        val coordinator = coordinator(
+            config = TtsConfig(),
+            engine = SynthesisEngine { text, _, onBytes ->
+                if (text == "old") {
+                    onBytes(
+                        WavFixtures.pcmWav(byteArrayOf(1, 0)) +
+                            WavFixtures.pcmWav(byteArrayOf(2, 0))
+                    )
+                } else {
+                    onBytes(WavFixtures.pcmWav(byteArrayOf(3, 0)))
+                }
+            },
+            sinkProvider = { if (sinkRequests++ == 0) oldSink else newSink }
+        )
+
+        coordinator.submitStream(
+            listOf(TtsUtterance(0, "old")),
+            oldCallbacks,
+            OriginalCall { error("old original fallback") }
+        )
+        firstWriteEntered.await()
+        coordinator.submitStream(
+            listOf(TtsUtterance(0, "new")),
+            newCallbacks,
+            OriginalCall { error("new original fallback") }
+        )
+        advanceUntilIdle()
+
+        assertEquals(listOf<Byte>(1, 0), oldSink.bytes)
+        assertEquals(emptyList<Int>(), oldCallbacks.utteranceStarts)
+        assertEquals(listOf(0), newCallbacks.utteranceStarts)
+        assertEquals(1, newCallbacks.completeCount)
+    }
+
+    @Test
+    fun `stream reuses one sink so utterance PCM remains continuous`() = runTest {
+        val sink = RecordingSink()
+        var sinkRequests = 0
+        val coordinator = coordinator(
+            config = TtsConfig(),
+            engine = SynthesisEngine { text, _, onBytes ->
+                val pcm = if (text == "first") byteArrayOf(1, 0) else byteArrayOf(2, 0)
+                onBytes(WavFixtures.pcmWav(pcm))
+            },
+            sinkProvider = {
+                sinkRequests++
+                sink
+            }
+        )
+
+        coordinator.submitStream(
+            listOf(TtsUtterance(0, "first"), TtsUtterance(1, "second")),
+            RecordingCallbacks(),
+            OriginalCall { error("original fallback") }
+        )
+        advanceUntilIdle()
+
+        assertEquals(1, sinkRequests)
+        assertArrayEquals(byteArrayOf(1, 0, 2, 0), sink.bytes.toByteArray())
+        assertEquals(1, sink.completeCount)
+    }
+
+    @Test
     fun `composite sink downgrades to fallback when primary open fails`() = runTest {
         val fallback = RecordingSink()
         val composite = CompositeAudioSink(
@@ -342,11 +413,17 @@ class TtsSessionCoordinatorTest {
         config: TtsConfig,
         sink: AudioSink,
         engine: SynthesisEngine
+    ) = coordinator(config, engine) { sink }
+
+    private fun kotlinx.coroutines.test.TestScope.coordinator(
+        config: TtsConfig,
+        engine: SynthesisEngine,
+        sinkProvider: () -> AudioSink
     ) = TtsSessionCoordinator(
         scope = this,
         configProvider = { config },
         synthesisEngine = engine,
-        sinkProvider = { sink }
+        sinkProvider = sinkProvider
     )
 
     private fun invocation(
@@ -405,5 +482,30 @@ class TtsSessionCoordinatorTest {
         override fun onCancelled(reason: String) {
             cancelCount++
         }
+    }
+
+    private class CancellationIgnoringFirstWriteSink(
+        private val firstWriteEntered: CompletableDeferred<Unit>
+    ) : AudioSink {
+        val bytes = mutableListOf<Byte>()
+        private var firstWrite = true
+
+        override suspend fun open(format: PcmFormat) = Unit
+
+        override suspend fun write(segment: PcmSegment) {
+            if (firstWrite) {
+                firstWrite = false
+                firstWriteEntered.complete(Unit)
+                try {
+                    CompletableDeferred<Unit>().await()
+                } catch (_: kotlinx.coroutines.CancellationException) {
+                    // Simulates a write already accepted by the audio backend when cancellation arrives.
+                }
+            }
+            bytes += segment.bytes.toList()
+        }
+
+        override suspend fun complete() = Unit
+        override suspend fun cancel() = Unit
     }
 }

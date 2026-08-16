@@ -131,18 +131,22 @@ class TtsSessionCoordinator(
                 synthesisEngine.synthesize(utterance.text, config) { bytes ->
                     if (!isCurrent(session.generation)) return@synthesize
                     for (segment in decoder.feed(bytes)) {
+                        ensureCurrent(session.generation)
                         if (session.reportUtteranceProgress && segment.bytes.isEmpty()) continue
                         if (openedFormat != segment.format) {
                             session.sink.open(segment.format)
                             openedFormat = segment.format
                         }
+                        ensureCurrent(session.generation)
                         session.sink.write(segment)
+                        ensureCurrent(session.generation)
                         if (!utterancePlayed) {
                             utterancePlayed = true
                             if (session.reportUtteranceProgress) {
                                 session.callbacks.onUtteranceStarted(utterance.index)
                             }
                         }
+                        ensureCurrent(session.generation)
                         if (!played) {
                             played = true
                             mutableState.value = TtsSessionState.Playing(session.generation)
@@ -173,6 +177,7 @@ class TtsSessionCoordinator(
             cancelSinkOnce(session)
             if (session.terminal.compareAndSet(false, true)) {
                 if (!played && config.fallbackToOriginal && !config.strictMode) {
+                    mutableState.value = TtsSessionState.Failed(session.generation, "fallback")
                     session.originalCall.resume()
                 } else {
                     session.callbacks.onError(error)
