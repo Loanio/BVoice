@@ -44,7 +44,10 @@ class TtsSessionCoordinator(
 ) {
     private data class ActiveSession(
         val generation: Long,
-        val invocation: TtsInvocation,
+        val utterances: List<TtsUtterance>,
+        val callbacks: TtsCallbacks,
+        val originalCall: OriginalCall,
+        val reportUtteranceProgress: Boolean,
         val sink: AudioSink,
         val terminal: AtomicBoolean,
         val sinkCancelled: AtomicBoolean,
@@ -57,12 +60,38 @@ class TtsSessionCoordinator(
     private val mutableState = MutableStateFlow<TtsSessionState>(TtsSessionState.Idle)
     val state: StateFlow<TtsSessionState> = mutableState.asStateFlow()
 
-    suspend fun submit(invocation: TtsInvocation): Long = mutex.withLock {
+    suspend fun submit(invocation: TtsInvocation): Long = submitSession(
+        utterances = listOf(TtsUtterance(index = 0, text = invocation.text)),
+        callbacks = invocation.callbacks,
+        originalCall = invocation.originalCall,
+        reportUtteranceProgress = false
+    )
+
+    suspend fun submitStream(
+        utterances: List<TtsUtterance>,
+        callbacks: TtsCallbacks,
+        originalCall: OriginalCall
+    ): Long = submitSession(
+        utterances = utterances,
+        callbacks = callbacks,
+        originalCall = originalCall,
+        reportUtteranceProgress = true
+    )
+
+    private suspend fun submitSession(
+        utterances: List<TtsUtterance>,
+        callbacks: TtsCallbacks,
+        originalCall: OriginalCall,
+        reportUtteranceProgress: Boolean
+    ): Long = mutex.withLock {
         cancelLocked("superseded")
         val generation = ++generationCounter
         val session = ActiveSession(
             generation = generation,
-            invocation = invocation,
+            utterances = utterances,
+            callbacks = callbacks,
+            originalCall = originalCall,
+            reportUtteranceProgress = reportUtteranceProgress,
             sink = sinkProvider(),
             terminal = AtomicBoolean(false),
             sinkCancelled = AtomicBoolean(false)
@@ -85,43 +114,56 @@ class TtsSessionCoordinator(
         previous.job?.cancel(CancellationException(reason))
         cancelSinkOnce(previous)
         if (previous.terminal.compareAndSet(false, true)) {
-            previous.invocation.callbacks.onCancelled(reason)
+            previous.callbacks.onCancelled(reason)
             mutableState.value = TtsSessionState.Cancelled(previous.generation, reason)
         }
     }
 
     private suspend fun runSession(session: ActiveSession, config: TtsConfig) {
-        val decoder = StreamingWavDecoder()
         var openedFormat: PcmFormat? = null
         var played = false
         try {
             mutableState.value = TtsSessionState.Buffering(session.generation)
-            synthesisEngine.synthesize(session.invocation.text, config) { bytes ->
-                if (!isCurrent(session.generation)) return@synthesize
-                for (segment in decoder.feed(bytes)) {
-                    if (openedFormat != segment.format) {
-                        session.sink.open(segment.format)
-                        openedFormat = segment.format
-                    }
-                    session.sink.write(segment)
-                    if (!played) {
-                        played = true
-                        mutableState.value = TtsSessionState.Playing(session.generation)
-                        session.invocation.callbacks.onStarted()
+            session.utterances.forEach { utterance ->
+                ensureCurrent(session.generation)
+                val decoder = StreamingWavDecoder()
+                var utterancePlayed = false
+                synthesisEngine.synthesize(utterance.text, config) { bytes ->
+                    if (!isCurrent(session.generation)) return@synthesize
+                    for (segment in decoder.feed(bytes)) {
+                        if (session.reportUtteranceProgress && segment.bytes.isEmpty()) continue
+                        if (openedFormat != segment.format) {
+                            session.sink.open(segment.format)
+                            openedFormat = segment.format
+                        }
+                        session.sink.write(segment)
+                        if (!utterancePlayed) {
+                            utterancePlayed = true
+                            if (session.reportUtteranceProgress) {
+                                session.callbacks.onUtteranceStarted(utterance.index)
+                            }
+                        }
+                        if (!played) {
+                            played = true
+                            mutableState.value = TtsSessionState.Playing(session.generation)
+                            session.callbacks.onStarted()
+                        }
                     }
                 }
+                ensureCurrent(session.generation)
+                check(decoder.finish() == DecodeFinish.Complete) { "Truncated WAV response" }
+                check(utterancePlayed) { "Synthesis produced no playable PCM" }
             }
-            check(decoder.finish() == DecodeFinish.Complete) { "Truncated WAV response" }
             check(played) { "Synthesis produced no playable PCM" }
             session.sink.complete()
             if (session.terminal.compareAndSet(false, true)) {
-                session.invocation.callbacks.onCompleted()
+                session.callbacks.onCompleted()
                 mutableState.value = TtsSessionState.Completed(session.generation)
             }
         } catch (cancelled: CancellationException) {
             cancelSinkOnce(session)
             if (session.terminal.compareAndSet(false, true)) {
-                session.invocation.callbacks.onCancelled(cancelled.message ?: "cancelled")
+                session.callbacks.onCancelled(cancelled.message ?: "cancelled")
                 mutableState.value = TtsSessionState.Cancelled(
                     session.generation,
                     cancelled.message ?: "cancelled"
@@ -131,9 +173,9 @@ class TtsSessionCoordinator(
             cancelSinkOnce(session)
             if (session.terminal.compareAndSet(false, true)) {
                 if (!played && config.fallbackToOriginal && !config.strictMode) {
-                    session.invocation.originalCall.resume()
+                    session.originalCall.resume()
                 } else {
-                    session.invocation.callbacks.onError(error)
+                    session.callbacks.onError(error)
                     mutableState.value = TtsSessionState.Failed(
                         session.generation,
                         error.message ?: error::class.java.simpleName
@@ -149,6 +191,10 @@ class TtsSessionCoordinator(
 
     private suspend fun isCurrent(generation: Long): Boolean =
         mutex.withLock { active?.generation == generation }
+
+    private suspend fun ensureCurrent(generation: Long) {
+        if (!isCurrent(generation)) throw CancellationException("superseded")
+    }
 
     private suspend fun cancelSinkOnce(session: ActiveSession) {
         if (session.sinkCancelled.compareAndSet(false, true)) {
