@@ -40,13 +40,19 @@ class BreenoHooker : YukiBaseHooker() {
             val selector = ProfileSelector(profiles)
             val engineProfile = Breeno1299Profile()
             val engineRoute = engineProfile.ttsRoute as TtsRoute.Engine
+            var resolvedEngineClass: Class<*>? = null
             val engineResolved = runCatching {
                 val engineClass = Class.forName(
                     engineRoute.descriptor.className,
                     false,
                     appClassLoader
                 )
-                EngineTtsInstaller.resolve(engineClass, engineRoute.descriptor) is EngineInstallResult.Ready
+                if (EngineTtsInstaller.resolve(engineClass, engineRoute.descriptor) is EngineInstallResult.Ready) {
+                    resolvedEngineClass = engineClass
+                    true
+                } else {
+                    false
+                }
             }.getOrDefault(false)
             Log.i(
                 LOG_TAG,
@@ -79,7 +85,8 @@ class BreenoHooker : YukiBaseHooker() {
                         context = context,
                         profile = selection.profile,
                         route = route,
-                        status = status
+                        status = status,
+                        resolvedClass = resolvedEngineClass
                     )
                 }
             }
@@ -92,9 +99,10 @@ class BreenoHooker : YukiBaseHooker() {
         context: Context,
         profile: VersionProfile,
         route: TtsRoute.Engine,
-        status: HookStatusPublisher
+        status: HookStatusPublisher,
+        resolvedClass: Class<*>? = null
     ) {
-        val clazz = route.descriptor.className.toClassOrNull()
+        val clazz = resolvedClass ?: route.descriptor.className.toClassOrNull()
             ?: return status.publish("disabled", "engine class disappeared after profile selection")
         val resolved = EngineTtsInstaller.resolve(clazz, route.descriptor)
         if (resolved !is EngineInstallResult.Ready) {

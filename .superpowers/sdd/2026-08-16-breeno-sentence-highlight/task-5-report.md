@@ -19,3 +19,7 @@ This also compiled the modified Hooker and profile classes through the debug Kot
 ## Concerns
 
 The production probe validates the exact engine descriptor before forcing 12.9.9; if an APK has the class but changed method signatures, it correctly falls back to normal profile selection rather than installing a broken engine hook.
+
+## Review follow-up
+
+Updated `TransportDescriptorTest` to assert the current engine methods `D0`, `G`, `O0`, and `J0`. The successful probe now retains the exact `Class<*>` loaded through `appClassLoader` and passes it to `installEngine`, avoiding a second potentially different-loader lookup; fallback routes retain the existing `toClassOrNull` path.

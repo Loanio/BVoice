@@ -25,12 +25,12 @@ class TransportDescriptorTest {
         assertEquals("com.heytap.speechassist.core.engine.TTSEngineImpl", route.descriptor.className)
         assertEquals(
             MethodDescriptor(
-                "m39754C0",
+                "D0",
                 listOf(
                     "java.lang.String",
                     "km.w",
                     "android.os.Bundle",
-                    "com.heytap.speechassist.sdk.TTSEngine\${'$'}SlpTtsCallBack"
+                    "com.heytap.speechassist.sdk.TTSEngine\$SlpTtsCallBack"
                 ),
                 "void"
             ),
@@ -38,16 +38,16 @@ class TransportDescriptorTest {
         )
         assertEquals(
             MethodDescriptor(
-                "m39779P0",
+                "G",
                 listOf("com.heytap.speechassist.sdk.tts.StreamTtsListener", "android.os.Bundle"),
                 "void"
             ),
             route.descriptor.streamStart
         )
         assertEquals(
-            MethodDescriptor("m39777O0", listOf("java.lang.String"), "void"),
+            MethodDescriptor("O0", listOf("java.lang.String"), "void"),
             route.descriptor.streamChunk
         )
-        assertEquals(MethodDescriptor("m39768J0", emptyList(), "void"), route.descriptor.streamEnd)
+        assertEquals(MethodDescriptor("J0", emptyList(), "void"), route.descriptor.streamEnd)
     }
 }
