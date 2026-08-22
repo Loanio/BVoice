@@ -8,6 +8,7 @@ import android.widget.AutoCompleteTextView
 import android.widget.EditText
 import android.widget.Spinner
 import android.widget.Switch
+import android.widget.CompoundButton
 import dev.breenottshook.config.TtsConfig
 import dev.breenottshook.ui.SettingsField
 import dev.breenottshook.ui.SettingsFieldType
@@ -22,6 +23,9 @@ data class HostFieldBinding(
 object HostFieldFactory {
     val supportedKeys: Set<String>
         get() = SettingsSchema.fields.mapTo(linkedSetOf()) { it.key }
+
+    fun switchContentDescription(label: String, checked: Boolean): String =
+        "$label，${if (checked) "已开启" else "已关闭"}，双击切换"
 
     fun createAll(context: Context, config: TtsConfig): List<HostFieldBinding> =
         SettingsSchema.fields.map { field -> create(context, config, field) }
@@ -43,11 +47,14 @@ object HostFieldFactory {
         }
         return when (field.type) {
             SettingsFieldType.BOOLEAN -> {
-                @Suppress("DEPRECATION")
-                val switch = Switch(context).apply {
-                    text = field.label
-                    contentDescription = field.description
+                val switch = createNativeSwitch(context) ?: Switch(context)
+                (switch as? android.widget.TextView)?.text = field.label
+                (switch as? CompoundButton)?.apply {
                     isChecked = currentValue.toBoolean()
+                    contentDescription = switchContentDescription(field.label, isChecked)
+                    setOnCheckedChangeListener { _, checked ->
+                        contentDescription = switchContentDescription(field.label, checked)
+                    }
                 }
                 HostFieldBinding(field, switch) { switch.isChecked.toString() }
             }
@@ -84,6 +91,22 @@ object HostFieldFactory {
             }
         }
     }
+
+    private fun createNativeSwitch(context: Context): CompoundButton? = runCatching {
+        val type = Class.forName("com.coui.appcompat.couiswitch.COUISwitch", false, context.classLoader)
+        val constructor = type.constructors.firstOrNull { c ->
+            c.parameterTypes.firstOrNull() == Context::class.java &&
+                c.parameterTypes.drop(1).all { it == android.util.AttributeSet::class.java || it == Int::class.javaPrimitiveType }
+        } ?: return@runCatching null
+        val args = constructor.parameterTypes.drop(1).map {
+            when (it) {
+                android.util.AttributeSet::class.java -> null
+                Int::class.javaPrimitiveType -> 0
+                else -> null
+            }
+        }.toTypedArray()
+        constructor.newInstance(*arrayOf(context, *args)) as? CompoundButton
+    }.getOrNull()
 
     private fun read(config: TtsConfig, key: String): String = when (key) {
         "enabled" -> config.enabled.toString()
