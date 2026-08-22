@@ -230,7 +230,7 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `preview completion error and cancellation reset preview state`() = runTest(dispatcher) {
+    fun `preview terminal callbacks and stop reset operation from previewing to idle`() = runTest(dispatcher) {
         val preview = RecordingPreviewController()
         val viewModel = viewModel(
             repository = FakeSettingsRepository(ConfigSnapshot(0, TtsConfig())),
@@ -241,21 +241,38 @@ class SettingsViewModelTest {
         advanceUntilIdle()
         preview.listener?.onStarted()
         assertTrue(viewModel.state.value.isPreviewing)
+        assertEquals(SettingsOperation.PREVIEWING, viewModel.state.value.operation)
 
         preview.listener?.onCompleted()
         assertFalse(viewModel.state.value.isPreviewing)
+        assertEquals(SettingsOperation.IDLE, viewModel.state.value.operation)
 
         viewModel.preview()
         advanceUntilIdle()
         preview.listener?.onStarted()
+        assertEquals(SettingsOperation.PREVIEWING, viewModel.state.value.operation)
         preview.listener?.onError(IllegalStateException("decoder failed"))
         assertFalse(viewModel.state.value.isPreviewing)
+        assertEquals(SettingsOperation.IDLE, viewModel.state.value.operation)
         assertTrue(viewModel.state.value.message.orEmpty().contains("decoder failed"))
 
         viewModel.preview()
         advanceUntilIdle()
         preview.listener?.onStarted()
+        assertEquals(SettingsOperation.PREVIEWING, viewModel.state.value.operation)
         preview.listener?.onCancelled("interrupted")
+        assertFalse(viewModel.state.value.isPreviewing)
+        assertEquals(SettingsOperation.IDLE, viewModel.state.value.operation)
+
+        viewModel.preview()
+        advanceUntilIdle()
+        preview.listener?.onStarted()
+        assertEquals(SettingsOperation.PREVIEWING, viewModel.state.value.operation)
+
+        viewModel.stopPreview()
+        advanceUntilIdle()
+
+        assertEquals(SettingsOperation.IDLE, viewModel.state.value.operation)
         assertFalse(viewModel.state.value.isPreviewing)
     }
 

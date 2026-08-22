@@ -253,7 +253,11 @@ class SettingsViewModel(
     private fun updatePreview(generation: Long, isPreviewing: Boolean, message: String? = null) {
         if (generation != previewGeneration) return
         mutableState.value = mutableState.value.copy(
-            operation = SettingsOperation.IDLE,
+            operation = if (isPreviewing) {
+                SettingsOperation.PREVIEWING
+            } else {
+                SettingsOperation.IDLE
+            },
             isPreviewing = isPreviewing,
             isBusy = false,
             message = message ?: mutableState.value.message
