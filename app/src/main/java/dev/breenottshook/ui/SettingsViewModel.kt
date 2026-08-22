@@ -41,6 +41,20 @@ interface PreviewListener {
     fun onCancelled(reason: String)
 }
 
+enum class SettingsOperation {
+    IDLE,
+    REFRESHING_CATALOG,
+    TESTING_CONNECTION,
+    PREVIEWING
+}
+
+enum class ServiceStatus {
+    UNCHECKED,
+    CHECKING,
+    AVAILABLE,
+    UNAVAILABLE
+}
+
 data class SettingsUiState(
     val persistedVersion: Long,
     val persisted: TtsConfig,
@@ -49,6 +63,9 @@ data class SettingsUiState(
     val characters: List<String> = emptyList(),
     val emotions: List<String> = emptyList(),
     val catalog: CharacterCatalog? = null,
+    val operation: SettingsOperation = SettingsOperation.IDLE,
+    val serviceStatus: ServiceStatus = ServiceStatus.UNCHECKED,
+    val serviceStatusMessage: String? = null,
     val isBusy: Boolean = false,
     val isPreviewing: Boolean = false,
     val connectionSucceeded: Boolean? = null,
@@ -133,12 +150,16 @@ class SettingsViewModel(
     fun refreshCatalog() {
         val requestedUrl = mutableState.value.draft.baseUrl
         viewModelScope.launch {
-            mutableState.value = mutableState.value.copy(isBusy = true, message = null)
+            if (!beginOperation(SettingsOperation.REFRESHING_CATALOG) { current ->
+                    current.copy(isBusy = true, message = null)
+                }
+            ) return@launch
             when (val result = catalogGateway.refresh(requestedUrl)) {
                 is CatalogState.Fresh -> applyCatalog(result.catalog, null)
                 is CatalogState.Stale -> applyCatalog(result.catalog, "刷新失败，正在使用缓存：${result.reason}")
                 is CatalogState.Failed -> {
                     mutableState.value = mutableState.value.copy(
+                        operation = SettingsOperation.IDLE,
                         isBusy = false,
                         message = "音色列表加载失败：${result.reason}"
                     )
@@ -150,11 +171,30 @@ class SettingsViewModel(
     fun testConnection() {
         val draft = mutableState.value.draft
         viewModelScope.launch {
-            mutableState.value = mutableState.value.copy(isBusy = true, connectionSucceeded = null)
-            val result = connectionTester.test(draft)
+            if (!beginOperation(SettingsOperation.TESTING_CONNECTION) { current ->
+                    current.copy(
+                        isBusy = true,
+                        connectionSucceeded = null,
+                        serviceStatus = ServiceStatus.CHECKING,
+                        serviceStatusMessage = null
+                    )
+                }
+            ) return@launch
+            val result = runCatching { connectionTester.test(draft) }
+                .getOrElse { Result.failure(it) }
             mutableState.value = mutableState.value.copy(
+                operation = SettingsOperation.IDLE,
                 isBusy = false,
                 connectionSucceeded = result.isSuccess,
+                serviceStatus = if (result.isSuccess) {
+                    ServiceStatus.AVAILABLE
+                } else {
+                    ServiceStatus.UNAVAILABLE
+                },
+                serviceStatusMessage = result.fold(
+                    onSuccess = { "连接成功" },
+                    onFailure = { "连接失败：${it.message ?: it::class.java.simpleName}" }
+                ),
                 message = result.fold(
                     onSuccess = { "连接成功" },
                     onFailure = { "连接失败：${it.message ?: it::class.java.simpleName}" }
@@ -167,7 +207,10 @@ class SettingsViewModel(
         val draft = mutableState.value.draft
         val generation = ++previewGeneration
         viewModelScope.launch {
-            mutableState.value = mutableState.value.copy(isBusy = true, message = null)
+            if (!beginOperation(SettingsOperation.PREVIEWING) { current ->
+                    current.copy(isBusy = true, message = null)
+                }
+            ) return@launch
             val result = previewController.preview(
                 draft.testText,
                 draft,
@@ -199,13 +242,18 @@ class SettingsViewModel(
         previewGeneration++
         viewModelScope.launch {
             previewController.stop()
-            mutableState.value = mutableState.value.copy(isPreviewing = false, isBusy = false)
+            mutableState.value = mutableState.value.copy(
+                operation = SettingsOperation.IDLE,
+                isPreviewing = false,
+                isBusy = false
+            )
         }
     }
 
     private fun updatePreview(generation: Long, isPreviewing: Boolean, message: String? = null) {
         if (generation != previewGeneration) return
         mutableState.value = mutableState.value.copy(
+            operation = SettingsOperation.IDLE,
             isPreviewing = isPreviewing,
             isBusy = false,
             message = message ?: mutableState.value.message
@@ -237,6 +285,7 @@ class SettingsViewModel(
                 character = selectedCharacter,
                 emotion = selectedEmotion
             ),
+            operation = SettingsOperation.IDLE,
             catalog = catalog,
             characters = characters,
             emotions = emotions,
@@ -254,6 +303,18 @@ class SettingsViewModel(
             emotions = emotions,
             message = message
         )
+    }
+
+    private inline fun beginOperation(
+        operation: SettingsOperation,
+        update: (SettingsUiState) -> SettingsUiState
+    ): Boolean {
+        val current = mutableState.value
+        if (current.operation != SettingsOperation.IDLE) {
+            return false
+        }
+        mutableState.value = update(current).copy(operation = operation)
+        return true
     }
 
     private fun ConfigSnapshot.toUiState(

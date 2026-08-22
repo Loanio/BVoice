@@ -5,6 +5,7 @@ import dev.breenottshook.api.CharacterCatalog
 import dev.breenottshook.config.ConfigSnapshot
 import dev.breenottshook.config.TtsConfig
 import dev.breenottshook.config.UpdateResult
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -158,6 +159,77 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `successful connection test leaves available service status and idle operation`() = runTest(dispatcher) {
+        val viewModel = viewModel(
+            repository = FakeSettingsRepository(ConfigSnapshot(0, TtsConfig())),
+            connection = RecordingConnectionTester()
+        )
+
+        viewModel.testConnection()
+        advanceUntilIdle()
+
+        assertEquals(SettingsOperation.IDLE, viewModel.state.value.operation)
+        assertEquals(ServiceStatus.AVAILABLE, viewModel.state.value.serviceStatus)
+        assertEquals("连接成功", viewModel.state.value.serviceStatusMessage)
+    }
+
+    @Test
+    fun `refresh is ignored while connection test is suspended`() = runTest(dispatcher) {
+        val connection = SuspendedConnectionTester()
+        val catalog = RecordingCatalogGateway()
+        val viewModel = viewModel(
+            repository = FakeSettingsRepository(ConfigSnapshot(0, TtsConfig())),
+            catalog = catalog,
+            connection = connection
+        )
+
+        viewModel.testConnection()
+        advanceUntilIdle()
+        assertEquals(SettingsOperation.TESTING_CONNECTION, viewModel.state.value.operation)
+        assertEquals(ServiceStatus.CHECKING, viewModel.state.value.serviceStatus)
+
+        viewModel.refreshCatalog()
+        advanceUntilIdle()
+
+        assertEquals(0, catalog.calls)
+
+        connection.complete(Result.success(Unit))
+        advanceUntilIdle()
+
+        assertEquals(SettingsOperation.IDLE, viewModel.state.value.operation)
+        assertEquals(ServiceStatus.AVAILABLE, viewModel.state.value.serviceStatus)
+    }
+
+    @Test
+    fun `refresh is ignored after preview starts until preview completes`() = runTest(dispatcher) {
+        val preview = SuspendedPreviewController()
+        val catalog = RecordingCatalogGateway()
+        val viewModel = viewModel(
+            repository = FakeSettingsRepository(ConfigSnapshot(0, TtsConfig())),
+            catalog = catalog,
+            preview = preview
+        )
+
+        viewModel.preview()
+        advanceUntilIdle()
+        preview.listener?.onStarted()
+
+        assertEquals(SettingsOperation.PREVIEWING, viewModel.state.value.operation)
+        assertTrue(viewModel.state.value.isPreviewing)
+
+        viewModel.refreshCatalog()
+        advanceUntilIdle()
+
+        assertEquals(0, catalog.calls)
+
+        preview.listener?.onCompleted()
+        preview.complete(Result.success(Unit))
+        advanceUntilIdle()
+
+        assertEquals(SettingsOperation.IDLE, viewModel.state.value.operation)
+    }
+
+    @Test
     fun `preview completion error and cancellation reset preview state`() = runTest(dispatcher) {
         val preview = RecordingPreviewController()
         val viewModel = viewModel(
@@ -224,11 +296,36 @@ class SettingsViewModelTest {
         override suspend fun refresh(baseUrl: String): CatalogState = result
     }
 
+    private class RecordingCatalogGateway(
+        private val result: CatalogState = CatalogState.Fresh(CharacterCatalog(emptyMap()))
+    ) : CatalogGateway {
+        var calls = 0
+
+        override suspend fun refresh(baseUrl: String): CatalogState {
+            calls++
+            return result
+        }
+    }
+
     private class RecordingConnectionTester : ConnectionTester {
         var lastConfig: TtsConfig? = null
         override suspend fun test(config: TtsConfig): Result<Unit> {
             lastConfig = config
             return Result.success(Unit)
+        }
+    }
+
+    private class SuspendedConnectionTester : ConnectionTester {
+        var lastConfig: TtsConfig? = null
+        private val completion = CompletableDeferred<Result<Unit>>()
+
+        override suspend fun test(config: TtsConfig): Result<Unit> {
+            lastConfig = config
+            return completion.await()
+        }
+
+        fun complete(result: Result<Unit>) {
+            completion.complete(result)
         }
     }
 
@@ -251,6 +348,26 @@ class SettingsViewModelTest {
 
         override suspend fun stop() {
             stopCalls++
+        }
+    }
+
+    private class SuspendedPreviewController : PreviewController {
+        var listener: PreviewListener? = null
+        private val completion = CompletableDeferred<Result<Unit>>()
+
+        override suspend fun preview(
+            text: String,
+            config: TtsConfig,
+            listener: PreviewListener
+        ): Result<Unit> {
+            this.listener = listener
+            return completion.await()
+        }
+
+        override suspend fun stop() = Unit
+
+        fun complete(result: Result<Unit>) {
+            completion.complete(result)
         }
     }
 }
