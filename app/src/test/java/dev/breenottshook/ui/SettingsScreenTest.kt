@@ -1,7 +1,9 @@
 package dev.breenottshook.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import dev.breenottshook.config.TtsConfig
 import org.junit.Rule
@@ -17,7 +19,7 @@ class SettingsScreenTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun `screen renders complete sections warning and primary actions`() {
+    fun `initial screen shows one preview action and keeps advanced fields collapsed`() {
         composeRule.setContent {
             SettingsScreen(
                 state = SettingsUiState(
@@ -26,6 +28,7 @@ class SettingsScreenTest {
                     draft = TtsConfig()
                 ),
                 onEdit = {},
+                onUpdateCoreSetting = {},
                 onSave = {},
                 onRefreshCatalog = {},
                 onTestConnection = {},
@@ -35,13 +38,9 @@ class SettingsScreenTest {
             )
         }
 
-        listOf("基础", "音色", "高级生成", "调试").forEach {
-            composeRule.onNodeWithText(it).fetchSemanticsNode()
-        }
-        composeRule.onNodeWithText("HTTP 连接未加密，请勿在不可信网络传输敏感文本。")
-            .assertIsDisplayed()
-        listOf("刷新音色", "测试连接", "试听", "保存配置").forEach {
-            composeRule.onNodeWithText(it).fetchSemanticsNode()
-        }
+        composeRule.onNodeWithText("试听").assertIsDisplayed()
+        composeRule.onAllNodesWithText("停止试听").assertCountEquals(0)
+        composeRule.onAllNodesWithText("API 地址").assertCountEquals(0)
+        composeRule.onNodeWithText("高级设置").assertIsDisplayed()
     }
 }

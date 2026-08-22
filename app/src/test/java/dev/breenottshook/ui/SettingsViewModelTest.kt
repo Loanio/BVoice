@@ -131,6 +131,45 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `initial catalog loading refreshes once and populates choices`() = runTest(dispatcher) {
+        val repository = FakeSettingsRepository(ConfigSnapshot(1, TtsConfig(character = "花火")))
+        val catalog = RecordingCatalogGateway(
+            CatalogState.Fresh(
+                CharacterCatalog(
+                    mapOf(
+                        "花火" to listOf("平静", "开心"),
+                        "青山" to listOf("default")
+                    )
+                )
+            )
+        )
+        val viewModel = viewModel(repository = repository, catalog = catalog)
+
+        viewModel.loadInitialCatalog()
+        advanceUntilIdle()
+        viewModel.loadInitialCatalog()
+        advanceUntilIdle()
+
+        assertEquals(1, catalog.calls)
+        assertEquals(listOf("花火", "青山"), viewModel.state.value.characters)
+        assertEquals(listOf("平静", "开心"), viewModel.state.value.emotions)
+    }
+
+    @Test
+    fun `core setting persists immediately and clears unsaved state`() = runTest(dispatcher) {
+        val repository = FakeSettingsRepository(ConfigSnapshot(3, TtsConfig(enabled = false)))
+        val viewModel = viewModel(repository = repository)
+
+        viewModel.updateCoreSetting { it.copy(enabled = true) }
+        advanceUntilIdle()
+
+        assertTrue(repository.snapshot.value.enabled)
+        assertEquals(4, repository.snapshot.version)
+        assertFalse(viewModel.state.value.hasUnsavedChanges)
+        assertTrue(viewModel.state.value.draft.enabled)
+    }
+
+    @Test
     fun `connection and preview use current unsaved draft values`() = runTest(dispatcher) {
         val repository = FakeSettingsRepository(ConfigSnapshot(0, TtsConfig()))
         val connection = RecordingConnectionTester()

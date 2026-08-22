@@ -113,6 +113,70 @@ class SettingsViewModel(
         )
     }
 
+    fun loadInitialCatalog() {
+        if (mutableState.value.catalog != null) {
+            return
+        }
+        refreshCatalog()
+    }
+
+    fun updateCoreSetting(transform: (TtsConfig) -> TtsConfig) {
+        val previous = mutableState.value
+        val nextDraft = transform(previous.draft)
+        val persistedCandidate = previous.persisted.copyCoreSettingsFrom(nextDraft)
+        mutableState.value = previous.copy(
+            draft = nextDraft,
+            validationIssues = emptyMap(),
+            connectionSucceeded = null,
+            message = null,
+            emotions = previous.catalog?.characters?.get(nextDraft.character).orEmpty()
+        )
+        viewModelScope.launch {
+            when (val validation = ConfigValidator.validate(persistedCandidate)) {
+                is ValidationResult.Invalid -> {
+                    mutableState.value = previous.copy(
+                        validationIssues = validation.issues.associate { it.field to it.message },
+                        message = "核心设置保存失败"
+                    )
+                }
+                is ValidationResult.Valid -> {
+                    mutableState.value = mutableState.value.copy(isBusy = true)
+                    when (val result = repository.update(previous.persistedVersion, validation.value)) {
+                        is UpdateResult.Success -> {
+                            val syncedDraft = mutableState.value.draft.copyCoreSettingsFrom(
+                                result.snapshot.value
+                            )
+                            applySnapshot(
+                                snapshot = result.snapshot,
+                                message = "核心设置已保存",
+                                draft = syncedDraft
+                            )
+                        }
+                        is UpdateResult.VersionConflict -> {
+                            mutableState.value = previous.copy(
+                                isBusy = false,
+                                message = "核心设置保存失败：检测到配置冲突"
+                            )
+                        }
+                        is UpdateResult.Invalid -> {
+                            mutableState.value = previous.copy(
+                                isBusy = false,
+                                validationIssues = result.issues.associate { it.field to it.message },
+                                message = "核心设置保存失败"
+                            )
+                        }
+                        UpdateResult.PersistenceFailure -> {
+                            mutableState.value = previous.copy(
+                                isBusy = false,
+                                message = "核心设置保存失败"
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fun save() {
         val current = mutableState.value
         when (val validation = ConfigValidator.validate(current.draft)) {
@@ -298,13 +362,14 @@ class SettingsViewModel(
         )
     }
 
-    private fun applySnapshot(snapshot: ConfigSnapshot, message: String) {
+    private fun applySnapshot(snapshot: ConfigSnapshot, message: String, draft: TtsConfig = snapshot.value) {
         val current = mutableState.value
-        val emotions = current.catalog?.characters?.get(snapshot.value.character).orEmpty()
+        val emotions = current.catalog?.characters?.get(draft.character).orEmpty()
         mutableState.value = snapshot.toUiState(
             catalog = current.catalog,
             characters = current.characters,
             emotions = emotions,
+            draft = draft,
             message = message
         )
     }
@@ -325,14 +390,23 @@ class SettingsViewModel(
         catalog: CharacterCatalog? = null,
         characters: List<String> = emptyList(),
         emotions: List<String> = emptyList(),
+        draft: TtsConfig = value,
         message: String? = null
     ) = SettingsUiState(
         persistedVersion = version,
         persisted = value,
-        draft = value,
+        draft = draft,
         catalog = catalog,
         characters = characters,
         emotions = emotions,
         message = message
     )
 }
+
+private fun TtsConfig.copyCoreSettingsFrom(source: TtsConfig): TtsConfig = copy(
+    enabled = source.enabled,
+    character = source.character,
+    emotion = source.emotion,
+    useManualVoice = source.useManualVoice,
+    fallbackToOriginal = source.fallbackToOriginal
+)

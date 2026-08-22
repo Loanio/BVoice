@@ -11,6 +11,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import dev.breenottshook.api.CharacterCache
+import dev.breenottshook.api.AndroidApiDiagnostics
 import dev.breenottshook.api.GptSovitsClient
 import dev.breenottshook.config.ConfigRepository
 import okhttp3.OkHttpClient
@@ -20,7 +21,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val client = GptSovitsClient(OkHttpClient())
+        val client = GptSovitsClient(OkHttpClient(), diagnostics = AndroidApiDiagnostics)
         val repository = ContentProviderSettingsRepository(ConfigRepository(contentResolver))
         val viewModel = SettingsViewModel(
             repository = repository,
@@ -30,6 +31,7 @@ class MainActivity : ComponentActivity() {
             connectionTester = ApiConnectionTester(client),
             previewController = SessionPreviewController(this, lifecycleScope, client)
         )
+        viewModel.loadInitialCatalog()
 
         setContent {
             val state by viewModel.state.collectAsState()
@@ -37,6 +39,7 @@ class MainActivity : ComponentActivity() {
                 SettingsScreen(
                     state = state,
                     onEdit = { next -> viewModel.edit { next } },
+                    onUpdateCoreSetting = { next -> viewModel.updateCoreSetting { next } },
                     onSave = viewModel::save,
                     onRefreshCatalog = viewModel::refreshCatalog,
                     onTestConnection = viewModel::testConnection,
