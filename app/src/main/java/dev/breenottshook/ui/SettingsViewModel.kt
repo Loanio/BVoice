@@ -122,6 +122,9 @@ class SettingsViewModel(
 
     fun updateCoreSetting(transform: (TtsConfig) -> TtsConfig) {
         val previous = mutableState.value
+        if (previous.operation != SettingsOperation.IDLE || previous.isBusy) {
+            return
+        }
         val nextDraft = transform(previous.draft)
         val persistedCandidate = previous.persisted.copyCoreSettingsFrom(nextDraft)
         mutableState.value = previous.copy(

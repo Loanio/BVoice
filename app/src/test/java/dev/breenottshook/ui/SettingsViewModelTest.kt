@@ -170,6 +170,25 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `core setting update is ignored while connection test is suspended`() = runTest(dispatcher) {
+        val repository = FakeSettingsRepository(ConfigSnapshot(0, TtsConfig(enabled = false)))
+        val connection = SuspendedConnectionTester()
+        val viewModel = viewModel(repository = repository, connection = connection)
+
+        viewModel.testConnection()
+        advanceUntilIdle()
+        viewModel.updateCoreSetting { it.copy(enabled = true) }
+        advanceUntilIdle()
+
+        assertEquals(0, repository.updateCalls)
+        assertFalse(viewModel.state.value.draft.enabled)
+        assertFalse(repository.snapshot.value.enabled)
+
+        connection.complete(Result.success(Unit))
+        advanceUntilIdle()
+    }
+
+    @Test
     fun `connection and preview use current unsaved draft values`() = runTest(dispatcher) {
         val repository = FakeSettingsRepository(ConfigSnapshot(0, TtsConfig()))
         val connection = RecordingConnectionTester()

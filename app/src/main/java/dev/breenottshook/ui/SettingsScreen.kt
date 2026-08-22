@@ -138,24 +138,28 @@ private fun CoreSettingsSection(
     state: SettingsUiState,
     onUpdateCoreSetting: (TtsConfig) -> Unit
 ) {
+    val controlsEnabled = state.operation == SettingsOperation.IDLE && !state.isBusy
     SettingsSectionCard(title = "基础设置") {
         BooleanSetting(
             label = "启用第三方 TTS",
             description = "关闭时不替换小布播报",
             checked = state.draft.enabled,
-            onCheckedChange = { onUpdateCoreSetting(state.draft.copy(enabled = it)) }
+            onCheckedChange = { onUpdateCoreSetting(state.draft.copy(enabled = it)) },
+            enabled = controlsEnabled
         )
         BooleanSetting(
             label = "使用手动音色",
             description = "立即切换到当前保存的手动角色与情感",
             checked = state.draft.useManualVoice,
-            onCheckedChange = { onUpdateCoreSetting(state.draft.copy(useManualVoice = it)) }
+            onCheckedChange = { onUpdateCoreSetting(state.draft.copy(useManualVoice = it)) },
+            enabled = controlsEnabled
         )
         BooleanSetting(
             label = "失败时使用原 TTS",
             description = "仅在第三方音频开始播放前允许回退",
             checked = state.draft.fallbackToOriginal,
-            onCheckedChange = { onUpdateCoreSetting(state.draft.copy(fallbackToOriginal = it)) }
+            onCheckedChange = { onUpdateCoreSetting(state.draft.copy(fallbackToOriginal = it)) },
+            enabled = controlsEnabled
         )
     }
 }
@@ -165,12 +169,14 @@ private fun VoiceSection(
     state: SettingsUiState,
     onUpdateCoreSetting: (TtsConfig) -> Unit
 ) {
+    val controlsEnabled = state.operation == SettingsOperation.IDLE && !state.isBusy
     SettingsSectionCard(title = "音色") {
         CharacterEmotionPicker(
             character = state.draft.character,
             emotion = state.draft.emotion,
             characters = state.characters,
             emotions = state.emotions,
+            enabled = controlsEnabled,
             onCharacterChange = { character ->
                 val emotions = state.catalog?.characters?.get(character).orEmpty()
                 onUpdateCoreSetting(
