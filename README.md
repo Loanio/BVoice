@@ -31,9 +31,9 @@ BreenoTTSHook provides both a standalone module app and an in-app Breeno setting
 
 ## Screenshots
 
-| Breeno settings | Voice settings |
+| Breeno settings | Third-party voice |
 | --- | --- |
-| ![Breeno settings](images/小布设置页面.jpg) | ![Voice settings](images/音色设置页面.jpg) |
+| ![Breeno settings](images/breeno-settings-en.jpg) | ![Third-party voice](images/third-party-voice-en.jpg) |
 
 > [!IMPORTANT]
 > **Beta software.** Features, compatibility, and stability are still being validated and may change. The module currently supports only the Breeno Assistant versions listed in [Compatibility](#compatibility).
