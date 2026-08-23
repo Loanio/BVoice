@@ -25,7 +25,7 @@ data class TtsConfig(
     val fallbackToOriginal: Boolean = true,
     val strictMode: Boolean = false,
     val forceModulePlayer: Boolean = false,
-    val logLevel: LogLevel = LogLevel.INFO,
+    val logLevel: LogLevel = LogLevel.ERROR,
     val testText: String = "你好，这是连接测试。"
 ) {
     val effectiveCharacter: String

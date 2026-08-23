@@ -7,6 +7,11 @@ import org.junit.Test
 class ConfigRepositoryTest {
 
     @Test
+    fun `new config defaults diagnostic logging to errors only`() {
+        assertEquals(LogLevel.ERROR, TtsConfig().logLevel)
+    }
+
+    @Test
     fun `new store returns version zero defaults`() {
         val store = AtomicConfigStore(InMemoryConfigPersistence())
 
