@@ -1,18 +1,12 @@
 # BreenoTTSHook
 
-面向 Android 的 LSPosed 模块，为小布助手接入用户自建的 GPT-SoVITS 服务。
+这个 LSPosed 模块可以为ColorOS的小布助手接入用户自建的 GPT-SoVITS 服务，从而实现自定义小布音色。
 
-BreenoTTSHook 提供模块 App 与小布内嵌设置入口，使用同一份本地配置完成角色选择、连接检查、试听和语音合成。模块不会修改小布 APK，也不提供默认服务地址或内置凭据。
+目前仅测试了小布助手 12.9.9版本，可以正常使用，其它版本正逐渐考虑适配。如果希望兼容其它API提供商，欢迎提issue。
 
 ## 主要功能
 
-- 为小布助手的 TTS 链路提供 GPT-SoVITS 语音合成接入。
-- 支持角色与情感目录加载、手动音色、连接检查和试听。
-- 支持流式响应，以及 WAV、PCM、MP3、OGG 音频格式。
-- 使用 AudioTrack 播放模块生成的音频，并支持播报取消与会话管理。
-- 在第三方音频尚未开始播放时，可按配置回退到原始 TTS。
-- 模块 App 与小布内嵌设置页共享带版本号的配置。
-- 提供中英文设置界面、诊断日志复制和隐私友好的播报标识。
+- 替换小布助手的 TTS 链路，提供 GPT-SoVITS 语音合成接入。
 
 ## 工作架构
 
@@ -43,7 +37,6 @@ LSPosed / YukiHookAPI
 | --- | --- |
 | Android | minSdk 31，targetSdk 35 |
 | Root 环境 | Magisk 或 KernelSU，配合 LSPosed |
-| 小布助手 11.8.3 | WebSocket TTS 路由 |
 | 小布助手 12.9.9 | Engine 与流式 TTS 路由 |
 | GPT-SoVITS 服务 | `GET /character_list` 与 `POST /tts` |
 
@@ -52,13 +45,10 @@ LSPosed / YukiHookAPI
 ## 安装与配置
 
 1. 安装模块 APK。
-2. 在 LSPosed 中启用模块，并将作用域设置为 `com.heytap.speechassist`。
-3. 重启小布助手。
-4. 打开 BreenoTTSHook App，或在小布设置中打开“第三方音色”。
-5. 填写 GPT-SoVITS 服务地址，加载角色与情感后进行试听。
-6. 开启“启用第三方 TTS”。
-
-服务地址由用户自行提供。地址为空时模块不会发起服务请求。
+2. 在 LSPosed / Vector 中启用模块，并将作用域设置为 `com.heytap.speechassist`。
+3. 重启小布助手进程。
+4. 在小布设置中打开多出来的“第三方音色”选项卡。
+5. 填写TTS服务地址，开启第三方TTS，试听使用。
 
 ## 配置项
 
@@ -115,8 +105,6 @@ app/src/main/java/dev/breenottshook/
 ## 诊断与反馈
 
 在设置页底部可复制诊断日志。提交问题时请提供设备型号、Android/ColorOS 版本、小布版本、LSPosed 版本、复现步骤和脱敏后的诊断记录。
-
-不要提交真实播报文本、服务地址、API Key、Cookie 或 Token。
 
 更多信息：
 
