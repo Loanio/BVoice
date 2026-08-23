@@ -14,7 +14,11 @@ class ProfileSelector(
         return when (matches.size) {
             0 -> ProfileSelection.Unsupported(packageVersion)
             1 -> ProfileSelection.Selected(matches.single())
-            else -> ProfileSelection.Ambiguous(matches.map { it.id })
+            else -> {
+                val engine = matches.filter { it.ttsRoute is TtsRoute.Engine }
+                if (engine.size == 1) ProfileSelection.Selected(engine.single())
+                else ProfileSelection.Ambiguous(matches.map { it.id })
+            }
         }
     }
 

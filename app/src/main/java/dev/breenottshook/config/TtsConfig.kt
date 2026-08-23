@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class TtsConfig(
     val enabled: Boolean = false,
-    val baseUrl: String = DEFAULT_BASE_URL,
+    val baseUrl: String = "",
     val character: String = "",
     val emotion: String = "default",
     val useManualVoice: Boolean = false,
@@ -34,9 +34,6 @@ data class TtsConfig(
     val effectiveEmotion: String
         get() = manualEmotion.takeIf { useManualVoice && it.isNotBlank() } ?: emotion
 
-    companion object {
-        const val DEFAULT_BASE_URL = "http://47.111.184.220:5000/"
-    }
 }
 
 @Serializable

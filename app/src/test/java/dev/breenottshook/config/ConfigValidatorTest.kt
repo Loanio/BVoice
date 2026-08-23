@@ -9,13 +9,19 @@ class ConfigValidatorTest {
     @Test
     fun `normalizes base URL with one trailing slash`() {
         val result = ConfigValidator.validate(
-            TtsConfig(baseUrl = "http://47.111.184.220:5000")
+            TtsConfig(baseUrl = "http://tts.example.test:5000")
         )
 
         assertEquals(
-            "http://47.111.184.220:5000/",
+            "http://tts.example.test:5000/",
             (result as ValidationResult.Valid).value.baseUrl
         )
+    }
+
+    @Test
+    fun `starts with an empty service address`() {
+        assertEquals("", TtsConfig().baseUrl)
+        assertTrue(ConfigValidator.validate(TtsConfig()) is ValidationResult.Valid)
     }
 
     @Test

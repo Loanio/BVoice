@@ -12,7 +12,7 @@
 
 - Target package: `com.heytap.speechassist`; stable target version: 11.8.3.
 - Target OS: Android 15 / ColorOS 15; do not use world-readable preferences.
-- Default API base URL: `http://47.111.184.220:5000/`; warn that HTTP is unencrypted.
+- The API base URL is entered by the user; warn that HTTP is unencrypted.
 - Replace every utterance entering the selected Breeno TTS component.
 - Prefer the verified Breeno player, then fall back to module AudioTrack; never guess an unsafe player method.
 - Keep a user-controlled original-TTS fallback switch and a strict third-party debug mode.
@@ -103,7 +103,7 @@ git commit -m "build: scaffold Yuki Hook Android module"
 
 **Interfaces:**
 - Produces `data class TtsConfig`, `data class ConfigSnapshot(val version: Long, val value: TtsConfig)`, `sealed interface ValidationResult`, `ConfigValidator.validate(TtsConfig)`, and JSON `ConfigCodec.encode/decode`.
-- Defaults include base URL `http://47.111.184.220:5000/`, WAV, streaming enabled, fallback enabled, strict mode disabled, and module-player forcing disabled.
+- Defaults include an empty base URL, WAV, streaming enabled, fallback enabled, strict mode disabled, and module-player forcing disabled.
 
 - [ ] **Step 1: Write failing validation tests**
 
@@ -111,8 +111,8 @@ Test URL normalization, rejection of non-HTTP schemes, `speed > 0`, `batchSize >
 
 ```kotlin
 @Test fun `normalizes base URL with trailing slash`() {
-    val result = ConfigValidator.validate(TtsConfig(baseUrl = "http://47.111.184.220:5000"))
-    assertEquals("http://47.111.184.220:5000/", (result as ValidationResult.Valid).value.baseUrl)
+    val result = ConfigValidator.validate(TtsConfig(baseUrl = "http://tts.example.test:5000"))
+    assertEquals("http://tts.example.test:5000/", (result as ValidationResult.Valid).value.baseUrl)
 }
 ```
 
@@ -312,9 +312,9 @@ git commit -m "feat: coordinate cancellable TTS playback and fallback"
 ### Task 7: Module Settings App with Full Configuration
 
 **Files:**
-- Create: `app/src/test/java/dev/breenottshook/ui/SettingsViewModelTest.kt`
+- Create: `app/src/test/java/dev/breenottshook/ui/SettingsOperationControllerBehaviorTest.kt`
 - Create: `app/src/main/java/dev/breenottshook/ui/MainActivity.kt`
-- Create: `app/src/main/java/dev/breenottshook/ui/SettingsViewModel.kt`
+- Create: `app/src/main/java/dev/breenottshook/ui/SettingsOperationController.kt`
 - Create: `app/src/main/java/dev/breenottshook/ui/SettingsSchema.kt`
 - Create: `app/src/main/java/dev/breenottshook/ui/SettingsScreen.kt`
 - Create: `app/src/main/java/dev/breenottshook/ui/components/CharacterEmotionPicker.kt`
@@ -322,7 +322,7 @@ git commit -m "feat: coordinate cancellable TTS playback and fallback"
 - Create: `app/src/main/java/dev/breenottshook/ui/components/DiagnosticsPanel.kt`
 
 **Interfaces:**
-- `SettingsViewModel.state: StateFlow<SettingsUiState>`
+- `SettingsOperationController.state: StateFlow<SettingsUiState>`
 - intents `Edit`, `Save`, `RefreshCatalog`, `TestConnection`, `Preview`, `StopPreview`, `ResetDefaults`.
 - `SettingsSchema` defines every field, validation metadata, section, and host-editor mapping.
 
@@ -332,7 +332,7 @@ Test unsaved draft isolation, validation blocking save, version-conflict reload,
 
 - [ ] **Step 2: Run tests and verify RED**
 
-Run `./gradlew.bat :app:testDebugUnitTest --tests "*.SettingsViewModelTest"`.
+Run `./gradlew.bat :app:testDebugUnitTest --tests "*.SettingsOperationControllerBehaviorTest"`.
 
 - [ ] **Step 3: Implement the view model and shared schema**
 
@@ -423,12 +423,12 @@ git commit -m "feat: hook Breeno TTS with guarded compatibility profiles"
 - Create: `app/src/test/java/dev/breenottshook/hook/SettingsHostSelectorTest.kt`
 - Create: `app/src/main/java/dev/breenottshook/hook/SettingsHostSelector.kt`
 - Create: `app/src/main/java/dev/breenottshook/hook/BreenoSettingsHook.kt`
-- Create: `app/src/main/java/dev/breenottshook/ui/host/HostSettingsDialog.kt`
+- Create: `app/src/main/java/dev/breenottshook/ui/host/HostSettingsContent.kt`
 - Create: `app/src/main/java/dev/breenottshook/ui/host/HostFieldFactory.kt`
 
 **Interfaces:**
 - `SettingsHostSelector.select(version, availableClasses): HostDescriptor?`.
-- `HostSettingsDialog` renders every `SettingsSchema` field and writes only through `ConfigRepository`/provider IPC.
+- `HostSettingsContent` renders every `SettingsSchema` field and delegates operations to `SettingsOperationController`.
 
 - [ ] **Step 1: Write failing host-selector and schema parity tests**
 

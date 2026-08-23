@@ -21,6 +21,7 @@ fun ChoicePicker(
     value: String,
     choices: List<String>,
     onValueChange: (String) -> Unit,
+    enabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -28,6 +29,7 @@ fun ChoicePicker(
         Text(label)
         OutlinedButton(
             onClick = { expanded = true },
+            enabled = enabled,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(value.ifBlank { "请选择" })
@@ -59,16 +61,18 @@ fun CharacterEmotionPicker(
     emotion: String,
     characters: List<String>,
     emotions: List<String>,
+    enabled: Boolean = true,
     onCharacterChange: (String) -> Unit,
     onEmotionChange: (String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        ChoicePicker("角色", character, characters, onCharacterChange)
+        ChoicePicker("角色", character, characters, onCharacterChange, enabled = enabled)
         ChoicePicker(
             label = "情感",
             value = emotion,
             choices = emotions,
             onValueChange = onEmotionChange,
+            enabled = enabled,
             modifier = Modifier.padding(top = 8.dp)
         )
     }

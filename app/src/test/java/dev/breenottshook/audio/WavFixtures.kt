@@ -3,6 +3,31 @@ package dev.breenottshook.audio
 import java.io.ByteArrayOutputStream
 
 object WavFixtures {
+    fun streamingPcmWavHeader(
+        sampleRate: Int = 24_000,
+        channels: Int = 1,
+        bitsPerSample: Int = 16
+    ): ByteArray {
+        val blockAlign = channels * bitsPerSample / 8
+        val byteRate = sampleRate * blockAlign
+        return ByteArrayOutputStream().apply {
+            writeAscii("RIFF")
+            // The provider emits a streaming header with unknown final sizes.
+            writeIntLe(36)
+            writeAscii("WAVE")
+            writeAscii("fmt ")
+            writeIntLe(16)
+            writeShortLe(1)
+            writeShortLe(channels)
+            writeIntLe(sampleRate)
+            writeIntLe(byteRate)
+            writeShortLe(blockAlign)
+            writeShortLe(bitsPerSample)
+            writeAscii("data")
+            writeIntLe(0)
+        }.toByteArray()
+    }
+
     fun pcmWav(
         pcm: ByteArray,
         sampleRate: Int = 24_000,

@@ -2,9 +2,11 @@ package dev.breenottshook.ui.host
 
 import android.app.Activity
 import android.graphics.Color
+import android.graphics.PorterDuff
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -16,6 +18,7 @@ import androidx.appcompat.widget.Toolbar
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import java.util.WeakHashMap
+import kotlin.math.max
 
 object HostSettingsPage {
     private const val PAGE_TAG = "dev.breenottshook.settings.page"
@@ -29,8 +32,8 @@ object HostSettingsPage {
         val list = activity.findViewById<View>(listId)
         val appBarId = activity.resources.getIdentifier("appBarLayout", "id", activity.packageName)
         val appBar = activity.findViewById<View>(appBarId)
-        val controller = HostSettingsDialog(activity)
-        val page = createPageShell(activity, controller, toolbarTitle(activity))
+        val content = HostSettingsContent(activity)
+        val page = createPageShell(activity, content, toolbarTitle(activity))
             .apply { tag = PAGE_TAG }
         val width = root.resources.displayMetrics.widthPixels.toFloat()
         page.translationX = width
@@ -41,6 +44,8 @@ object HostSettingsPage {
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
+        page.elevation = dp(activity, 24).toFloat()
+        page.bringToFront()
         val title = toolbarTitle(activity)
         installBackHandler(activity)
         val callback = (activity as? ComponentActivity)?.onBackPressedDispatcher?.let { dispatcher ->
@@ -56,7 +61,7 @@ object HostSettingsPage {
                 )
             }
         } else null
-        val state = PageState(root, page, list, appBar, controller, callback, invokedCallback)
+        val state = PageState(root, page, list, appBar, content, callback, invokedCallback)
         pages[activity] = state
         restorePending = true
         list?.animate()?.translationX(-width * 0.18f)?.setDuration(320L)?.start()
@@ -77,7 +82,7 @@ object HostSettingsPage {
                 state.container.removeView(state.page)
                 state.list?.translationX = 0f
                 state.appBar?.translationX = 0f
-                state.controller.dispose()
+                state.content.dispose()
                 state.callback?.isEnabled = false
                 state.callback?.remove()
                 if (android.os.Build.VERSION.SDK_INT >= 33) {
@@ -116,27 +121,52 @@ object HostSettingsPage {
 
     private fun createPageShell(
         activity: Activity,
-        controller: HostSettingsDialog,
+        content: HostSettingsContent,
         hostTitle: TextView?
     ): ViewGroup {
-        val background = controller.resolvePageBackground()
+        val background = content.resolvePageBackground()
         val toolbarId = activity.resources.getIdentifier("toolbar", "id", activity.packageName)
         val hostToolbar = activity.findViewById<View>(toolbarId)
-        val pageToolbar = createNativeToolbar(activity, hostToolbar, hostTitle, controller) {
+        val pageToolbar = createNativeToolbar(activity, hostToolbar, hostTitle, content) {
             close(activity)
         }
-        val toolbarHeight = (hostToolbar?.measuredHeight ?: 0).takeIf { it > 0 } ?: dp(activity, 56)
-        val statusBarHeight = statusBarHeight(activity)
+        val toolbarHeight = max(hostToolbar?.measuredHeight ?: 0, dp(activity, 56))
+        val statusBarSpacer = View(activity)
         return LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(background)
-            addView(View(activity), LinearLayout.LayoutParams.MATCH_PARENT, statusBarHeight)
+            addView(statusBarSpacer, LinearLayout.LayoutParams.MATCH_PARENT, 0)
             addView(pageToolbar, LinearLayout.LayoutParams.MATCH_PARENT, toolbarHeight)
-            addView(controller.createPageContent { close(activity) }, LinearLayout.LayoutParams(
+            addView(content.createPageContent { close(activity) }, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
                 1f
             ))
+            setOnApplyWindowInsetsListener { _, insets ->
+                val height = insets.getInsets(WindowInsets.Type.statusBars()).top
+                if (statusBarSpacer.layoutParams.height != height) {
+                    statusBarSpacer.layoutParams = statusBarSpacer.layoutParams.apply {
+                        this.height = height
+                    }
+                }
+                insets
+            }
+            // The host settings view may already have dispatched insets before
+            // this overlay is attached. Read the current inset as well so the
+            // toolbar starts below the status bar instead of being covered by it.
+            post {
+                val height = activity.window?.decorView?.rootWindowInsets
+                    ?.getInsets(WindowInsets.Type.statusBars())?.top
+                    ?: activity.resources.getIdentifier("status_bar_height", "dimen", "android")
+                        .takeIf { it != 0 }
+                        ?.let(activity.resources::getDimensionPixelSize)
+                    ?: 0
+                if (statusBarSpacer.layoutParams.height != height) {
+                    statusBarSpacer.layoutParams = statusBarSpacer.layoutParams.apply {
+                        this.height = height
+                    }
+                }
+            }
         }
     }
 
@@ -144,20 +174,29 @@ object HostSettingsPage {
         activity: Activity,
         hostToolbar: View?,
         hostTitle: TextView?,
-        controller: HostSettingsDialog,
+        content: HostSettingsContent,
         onBack: () -> Unit
     ): View {
         val host = hostToolbar as? Toolbar
+        val toolbarTextColor = if (
+            activity.resources.configuration.uiMode and
+                android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+        ) Color.WHITE else content.resolvePrimaryTextColor()
         return LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.TRANSPARENT)
+            setBackgroundColor(content.resolvePageBackground())
+            minimumHeight = dp(activity, 56)
+            elevation = dp(activity, 8).toFloat()
             val backIcon = host?.navigationIcon ?: findNavigationDrawable(hostToolbar, activity)
             if (backIcon != null) {
                 addView(ImageButton(activity).apply {
-                    setImageDrawable(backIcon)
+                    setImageDrawable(backIcon.mutate())
+                    setColorFilter(toolbarTextColor, PorterDuff.Mode.SRC_IN)
                     setBackgroundColor(Color.TRANSPARENT)
                     contentDescription = "返回"
+                    visibility = View.VISIBLE
                     setOnClickListener { onBack() }
                 }, LinearLayout.LayoutParams(dp(activity, 56), LinearLayout.LayoutParams.MATCH_PARENT))
             } else {
@@ -165,19 +204,23 @@ object HostSettingsPage {
                     text = "‹"
                     textSize = 48f
                     gravity = Gravity.CENTER
-                    setTextColor(controller.resolvePrimaryTextColor())
+                    setTextColor(toolbarTextColor)
                     contentDescription = "返回"
+                    visibility = View.VISIBLE
                     setOnClickListener { onBack() }
                 }, LinearLayout.LayoutParams(dp(activity, 56), LinearLayout.LayoutParams.MATCH_PARENT))
             }
             addView(TextView(activity).apply {
-                    text = "第三方音色"
+                    text = HostStrings.title(activity.resources.configuration.locales[0])
                     gravity = Gravity.CENTER_VERTICAL or Gravity.START
+                    setPadding(dp(activity, 4), 0, dp(activity, 16), 0)
                     typeface = hostTitle?.typeface ?: android.graphics.Typeface.DEFAULT
-                    setTextColor(android.content.res.ColorStateList.valueOf(controller.resolvePrimaryTextColor()))
+                    setTextColor(android.content.res.ColorStateList.valueOf(toolbarTextColor))
                     val px = hostTitle?.textSize ?: (20f * activity.resources.displayMetrics.scaledDensity)
                     setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, px)
                     visibility = View.VISIBLE
+                    maxLines = 1
+                    ellipsize = android.text.TextUtils.TruncateAt.END
                 }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f))
         }
     }
@@ -203,11 +246,6 @@ object HostSettingsPage {
     private fun dp(context: android.content.Context, value: Int): Int =
         (value * context.resources.displayMetrics.density).toInt()
 
-    private fun statusBarHeight(context: android.content.Context): Int {
-        val id = context.resources.getIdentifier("status_bar_height", "dimen", "android")
-        return if (id != 0) context.resources.getDimensionPixelSize(id) else dp(context, 24)
-    }
-
     private fun findTextView(view: View?): TextView? = when (view) {
         is TextView -> view
         is ViewGroup -> (0 until view.childCount)
@@ -222,7 +260,7 @@ object HostSettingsPage {
         val page: View,
         val list: View?,
         val appBar: View?,
-        val controller: HostSettingsDialog,
+        val content: HostSettingsContent,
         val callback: OnBackPressedCallback?,
         val invokedCallback: OnBackInvokedCallback?,
         var closing: Boolean = false

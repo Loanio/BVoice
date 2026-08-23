@@ -92,7 +92,7 @@ class GptSovitsClientTest {
 
     @Test
     fun `maps non success response to typed HTTP error`() = runTest {
-        server.enqueue(MockResponse().setResponseCode(503).setBody("model unavailable"))
+        repeat(3) { server.enqueue(MockResponse().setResponseCode(503).setBody("model unavailable")) }
 
         val failure = runCatching {
             client.synthesize(
@@ -103,6 +103,66 @@ class GptSovitsClientTest {
 
         assertTrue(failure is ApiException)
         assertEquals(503, ((failure as ApiException).error as ApiError.Http).statusCode)
+    }
+
+    @Test
+    fun `retries transient 500 and forwards audio after the service recovers`() = runTest {
+        val expectedAudio = byteArrayOf(9, 8, 7)
+        server.enqueue(MockResponse().setResponseCode(500).setBody("temporary model failure"))
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "audio/wav")
+                .setBody(okio.Buffer().write(expectedAudio))
+        )
+
+        val received = mutableListOf<Byte>()
+        client.synthesize("你好", TtsConfig(baseUrl = server.url("/").toString())) { bytes ->
+            received += bytes.toList()
+        }
+
+        assertArrayEquals(expectedAudio, received.toByteArray())
+        assertEquals(2, server.requestCount)
+    }
+
+    @Test
+    fun `reports HTTP failure to diagnostics without response body`() = runTest {
+        repeat(3) { server.enqueue(MockResponse().setResponseCode(503).setBody("model unavailable")) }
+        val events = mutableListOf<ApiDiagnosticEvent>()
+        val diagnosedClient = GptSovitsClient(OkHttpClient(), diagnostics = events::add)
+
+        runCatching {
+            diagnosedClient.synthesize(
+                text = "secret text must never be logged",
+                config = TtsConfig(baseUrl = server.url("/").toString())
+            ) {}
+        }
+
+        val failure = events.last() as ApiDiagnosticEvent.HttpFailure
+        assertEquals("tts", failure.endpoint)
+        assertEquals(503, failure.statusCode)
+        assertEquals("model unavailable", failure.body)
+    }
+
+    @Test
+    fun `reports configured timeouts when synthesis starts`() = runTest {
+        server.enqueue(MockResponse().setBody(okio.Buffer().write(byteArrayOf(1))))
+        val events = mutableListOf<ApiDiagnosticEvent>()
+        val diagnosedClient = GptSovitsClient(OkHttpClient(), diagnostics = events::add)
+        val config = TtsConfig(
+            baseUrl = server.url("/").toString(),
+            connectTimeoutMs = 15_000,
+            readTimeoutMs = 90_000
+        )
+
+        diagnosedClient.synthesize("x", config) { }
+
+        val started = events.first() as ApiDiagnosticEvent.RequestStarted
+        assertEquals("tts", started.endpoint)
+        assertTrue(started.stream)
+        assertEquals(1, started.chars)
+        assertEquals(15_000, started.connectTimeoutMs)
+        assertEquals(90_000, started.readTimeoutMs)
+        assertEquals(1, started.attempt)
     }
 
     @Test

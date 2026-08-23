@@ -3,6 +3,7 @@ package dev.breenottshook.hook
 import dev.breenottshook.config.TtsConfig
 import dev.breenottshook.session.TtsInvocation
 import kotlinx.coroutines.test.runTest
+import dev.breenottshook.session.TtsCallbacks
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -155,4 +156,26 @@ class BreenoEngineRuntimeTest {
         assertTrue(runtime.onStreamEnd {})
         assertEquals(listOf("全文"), submitted.map { it.text })
     }
+
+    @Test
+    fun `implicit stream keeps native highlight listener`() = runTest {
+        val events = mutableListOf<String>()
+        val listener = object {
+            fun onNextSliceStart(info: SliceInfo) { events += "${info.index}:${info.text}:${info.length}" }
+        }
+        var callbacks: TtsCallbacks? = null
+        val runtime = BreenoEngineRuntime(
+            configProvider = { TtsConfig(enabled = true) },
+            submit = {},
+            submitStream = { _, received, _ -> callbacks = received },
+            cancelHandler = {},
+            implicitListenerProvider = { listener }
+        )
+        runtime.onStreamChunk("全文", {})
+        runtime.onStreamEnd {}
+        callbacks!!.onUtteranceStarted(dev.breenottshook.session.TtsUtterance(0, "全文"))
+        assertEquals(listOf("0:全文:2"), events)
+    }
+
+    class SliceInfo(val index: Int, val text: String, val length: Long)
 }

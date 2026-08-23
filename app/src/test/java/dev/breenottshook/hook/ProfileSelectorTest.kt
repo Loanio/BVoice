@@ -7,7 +7,7 @@ import org.junit.Test
 
 class ProfileSelectorTest {
     @Test
-    fun `exact 11_8_3 profile is selected only when its transport class exists`() {
+    fun `transport profile is selected when its class exists`() {
         val profile = Breeno1183Profile()
         val selector = ProfileSelector(listOf(profile))
 
@@ -20,7 +20,7 @@ class ProfileSelectorTest {
     }
 
     @Test
-    fun `exact 12_9_9 profile is selected only when its engine class exists`() {
+    fun `engine profile is selected when its class exists`() {
         val profile = Breeno1299Profile()
         val selector = ProfileSelector(listOf(Breeno1183Profile(), profile))
 
@@ -33,13 +33,13 @@ class ProfileSelectorTest {
     }
 
     @Test
-    fun `unsupported version is not hooked`() {
+    fun `unknown package version does not block a matching profile`() {
         val result = ProfileSelector(listOf(Breeno1183Profile(), Breeno1299Profile())).select(
             packageVersion = "12.9.10",
-            classProbe = ClassProbe { true }
+            classProbe = ClassProbe { it == Breeno1183Profile.REAL_WEB_SOCKET_CLASS }
         )
 
-        assertEquals(ProfileSelection.Unsupported("12.9.10"), result)
+        assertTrue(result is ProfileSelection.Selected && result.profile.id == "breeno-11.8.3")
     }
 
     @Test

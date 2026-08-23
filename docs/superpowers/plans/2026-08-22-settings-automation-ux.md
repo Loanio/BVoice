@@ -4,7 +4,7 @@
 
 **Goal:** Automate routine TTS setup and turn both settings surfaces into a compact, native-feeling flow.
 
-**Architecture:** SettingsViewModel becomes the shared source for operation state and durable service feedback. Compose and the injected host page render that state with their own widget systems; they retain one configuration schema and one persistence path.
+**Architecture:** `SettingsOperationController` is the shared source for operation state and durable service feedback. Compose and the injected host page render that state with their own widget systems; they retain one configuration schema and one persistence path.
 
 **Tech Stack:** Kotlin, Coroutines StateFlow, Compose Material 3, Android Views, Robolectric, JUnit 4.
 
@@ -22,8 +22,8 @@
 ### Task 1: Shared settings operation state
 
 **Files:**
-- Modify: app/src/main/java/dev/breenottshook/ui/SettingsViewModel.kt
-- Modify: app/src/test/java/dev/breenottshook/ui/SettingsViewModelTest.kt
+- Modify: app/src/main/java/dev/breenottshook/ui/SettingsOperationController.kt
+- Modify: app/src/test/java/dev/breenottshook/ui/SettingsOperationControllerBehaviorTest.kt
 
 **Interfaces:**
 - Produces SettingsOperation with IDLE, REFRESHING_CATALOG, TESTING_CONNECTION, and PREVIEWING.
@@ -44,7 +44,7 @@
 
 - [ ] Step 2: Verify RED
 
-Run: ./gradlew.bat :app:testDebugUnitTest --tests dev.breenottshook.ui.SettingsViewModelTest
+Run: ./gradlew.bat :app:testDebugUnitTest --tests dev.breenottshook.ui.SettingsOperationControllerBehaviorTest
 
 Expected: compilation failure because the new state types and fields do not exist.
 
@@ -60,21 +60,21 @@ Guard refresh, connection test, and preview with begin; publish checking, availa
 
 - [ ] Step 4: Verify GREEN
 
-Run: ./gradlew.bat :app:testDebugUnitTest --tests dev.breenottshook.ui.SettingsViewModelTest
+Run: ./gradlew.bat :app:testDebugUnitTest --tests dev.breenottshook.ui.SettingsOperationControllerBehaviorTest
 
 Expected: PASS.
 
 - [ ] Step 5: Commit only Task 1 files
 
-Run: git add -- app/src/main/java/dev/breenottshook/ui/SettingsViewModel.kt app/src/test/java/dev/breenottshook/ui/SettingsViewModelTest.kt; git commit -m "feat: expose settings operation status"
+Run: git add -- app/src/main/java/dev/breenottshook/ui/SettingsOperationController.kt app/src/test/java/dev/breenottshook/ui/SettingsOperationControllerBehaviorTest.kt; git commit -m "feat: expose settings operation status"
 
 ### Task 2: Automate core setup and simplify Compose
 
 **Files:**
 - Modify: app/src/main/java/dev/breenottshook/ui/MainActivity.kt
-- Modify: app/src/main/java/dev/breenottshook/ui/SettingsViewModel.kt
+- Modify: app/src/main/java/dev/breenottshook/ui/SettingsOperationController.kt
 - Modify: app/src/main/java/dev/breenottshook/ui/SettingsScreen.kt
-- Modify: app/src/test/java/dev/breenottshook/ui/SettingsViewModelTest.kt
+- Modify: app/src/test/java/dev/breenottshook/ui/SettingsOperationControllerBehaviorTest.kt
 - Modify: app/src/test/java/dev/breenottshook/ui/SettingsScreenTest.kt
 
 **Interfaces:**
@@ -104,7 +104,7 @@ Run: git add -- app/src/main/java/dev/breenottshook/ui/SettingsViewModel.kt app/
 
 - [ ] Step 2: Verify RED
 
-Run: ./gradlew.bat :app:testDebugUnitTest --tests dev.breenottshook.ui.SettingsViewModelTest --tests dev.breenottshook.ui.SettingsScreenTest
+Run: ./gradlew.bat :app:testDebugUnitTest --tests dev.breenottshook.ui.SettingsOperationControllerBehaviorTest --tests dev.breenottshook.ui.SettingsScreenTest
 
 Expected: failure because immediate persistence and the collapsed hierarchy do not exist.
 
@@ -114,25 +114,25 @@ Call loadInitialCatalog once from the Activity. Persist enable, character, emoti
 
 - [ ] Step 4: Verify GREEN
 
-Run: ./gradlew.bat :app:testDebugUnitTest --tests dev.breenottshook.ui.SettingsViewModelTest --tests dev.breenottshook.ui.SettingsScreenTest
+Run: ./gradlew.bat :app:testDebugUnitTest --tests dev.breenottshook.ui.SettingsOperationControllerBehaviorTest --tests dev.breenottshook.ui.SettingsScreenTest
 
 Expected: PASS.
 
 - [ ] Step 5: Commit only Task 2 files
 
-Run: git add -- app/src/main/java/dev/breenottshook/ui/MainActivity.kt app/src/main/java/dev/breenottshook/ui/SettingsViewModel.kt app/src/main/java/dev/breenottshook/ui/SettingsScreen.kt app/src/test/java/dev/breenottshook/ui/SettingsViewModelTest.kt app/src/test/java/dev/breenottshook/ui/SettingsScreenTest.kt; git commit -m "feat: automate core TTS setup"
+Run: git add -- app/src/main/java/dev/breenottshook/ui/MainActivity.kt app/src/main/java/dev/breenottshook/ui/SettingsOperationController.kt app/src/main/java/dev/breenottshook/ui/SettingsScreen.kt app/src/test/java/dev/breenottshook/ui/SettingsOperationControllerBehaviorTest.kt app/src/test/java/dev/breenottshook/ui/SettingsScreenTest.kt; git commit -m "feat: automate core TTS setup"
 
-### Task 3: Align the injected host page and remove the obsolete dialog shell
+### Task 3: Align the injected host page with shared operation state
 
 **Files:**
-- Modify: app/src/main/java/dev/breenottshook/ui/host/HostSettingsDialog.kt
+- Modify: app/src/main/java/dev/breenottshook/ui/host/HostSettingsContent.kt
 - Modify: app/src/main/java/dev/breenottshook/ui/host/HostFieldFactory.kt
-- Create: app/src/test/java/dev/breenottshook/ui/host/HostSettingsDialogTest.kt
+- Create: app/src/test/java/dev/breenottshook/ui/host/HostSettingsContentTest.kt
 - Modify: docs/DIAGNOSTICS.md
 - Modify: docs/INSTALL.md
 
 **Interfaces:**
-- Produces HostSettingsDialog.previewActionLabel(isPreviewing: Boolean): String.
+- Produces HostSettingsPresentation.from(state: SettingsUiState): HostSettingsPresentation.
 - Produces HostFieldFactory.switchContentDescription(label: String, checked: Boolean): String.
 
 - [ ] Step 1: Write failing host tests
@@ -144,20 +144,20 @@ Run: git add -- app/src/main/java/dev/breenottshook/ui/MainActivity.kt app/src/m
     }
 
     @Test
-    fun hostPreviewUsesOneActionLabelForEachState() {
-        assertEquals("试听", HostSettingsDialog.previewActionLabel(false))
-        assertEquals("停止试听", HostSettingsDialog.previewActionLabel(true))
+    fun hostActionsFollowSharedOperationState() {
+        val presentation = HostSettingsPresentation.from(state)
+        assertEquals("停止试听", presentation.previewLabel)
     }
 
 - [ ] Step 2: Verify RED
 
-Run: ./gradlew.bat :app:testDebugUnitTest --tests dev.breenottshook.ui.host.HostSettingsDialogTest
+Run: ./gradlew.bat :app:testDebugUnitTest --tests dev.breenottshook.ui.host.HostSettingsContentTest
 
 Expected: compilation failure because the helpers do not exist.
 
 - [ ] Step 3: Implement host-native behavior
 
-Replace the four-button panel with persistent service status, refresh/test actions, and one preview button. Move non-core fields below a clickable 高级设置 disclosure. Give switches label-plus-state accessibility text and 48dp touch rows. Confirm no production caller invokes HostSettingsDialog.show(), then remove that AlertDialog-only method and imports.
+Render persistent service status, refresh/test actions, and one preview button. Place non-core fields below a clickable 高级设置 disclosure. Give switches label-plus-state accessibility text and 48dp touch rows.
 
 - [ ] Step 4: Verify GREEN and full regression suite
 
@@ -169,4 +169,4 @@ Expected: all unit tests and lint pass, build succeeds, and output includes VERI
 
 Verify on device that catalog loads automatically, connection state remains visible, preview is a single stateful action, core choices persist after reopening, and TalkBack announces switches correctly.
 
-Run: git add -- app/src/main/java/dev/breenottshook/ui/host/HostSettingsDialog.kt app/src/main/java/dev/breenottshook/ui/host/HostFieldFactory.kt app/src/test/java/dev/breenottshook/ui/host/HostSettingsDialogTest.kt docs/DIAGNOSTICS.md docs/INSTALL.md; git commit -m "feat: automate host TTS settings"
+Run: git add -- app/src/main/java/dev/breenottshook/ui/host/HostSettingsContent.kt app/src/main/java/dev/breenottshook/ui/host/HostFieldFactory.kt app/src/test/java/dev/breenottshook/ui/host/HostSettingsContentTest.kt docs/DIAGNOSTICS.md docs/INSTALL.md; git commit -m "feat: automate host TTS settings"

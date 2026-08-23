@@ -23,7 +23,7 @@ import org.junit.Before
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class SettingsViewModelTest {
+class SettingsOperationControllerBehaviorTest {
     private val dispatcher = StandardTestDispatcher()
 
     @Before
@@ -37,22 +37,18 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `editing draft does not persist until save then shared version increments`() = runTest(dispatcher) {
+    fun `editing advanced setting automatically persists and reports shared version`() = runTest(dispatcher) {
         val repository = FakeSettingsRepository(ConfigSnapshot(3, TtsConfig(character = "原音色")))
         val viewModel = viewModel(repository = repository)
 
         viewModel.edit { it.copy(character = "新音色") }
-
-        assertEquals("原音色", repository.snapshot.value.character)
-        assertEquals("新音色", viewModel.state.value.draft.character)
-        assertTrue(viewModel.state.value.hasUnsavedChanges)
-
-        viewModel.save()
         advanceUntilIdle()
 
         assertEquals(4, repository.snapshot.version)
+        assertEquals("新音色", viewModel.state.value.draft.character)
         assertEquals("新音色", repository.snapshot.value.character)
         assertFalse(viewModel.state.value.hasUnsavedChanges)
+        assertTrue(viewModel.state.value.message.orEmpty().contains("已自动保存"))
     }
 
     @Test
@@ -189,7 +185,7 @@ class SettingsViewModelTest {
     }
 
     @Test
-    fun `connection and preview use current unsaved draft values`() = runTest(dispatcher) {
+    fun `connection and preview use the current automatic-save values`() = runTest(dispatcher) {
         val repository = FakeSettingsRepository(ConfigSnapshot(0, TtsConfig()))
         val connection = RecordingConnectionTester()
         val preview = RecordingPreviewController()
@@ -203,6 +199,9 @@ class SettingsViewModelTest {
         }
 
         viewModel.testConnection()
+        advanceUntilIdle()
+        assertEquals(SettingsOperation.IDLE, viewModel.state.value.operation)
+
         viewModel.preview()
         advanceUntilIdle()
 
@@ -229,6 +228,86 @@ class SettingsViewModelTest {
         assertEquals(SettingsOperation.IDLE, viewModel.state.value.operation)
         assertEquals(ServiceStatus.AVAILABLE, viewModel.state.value.serviceStatus)
         assertEquals("连接成功", viewModel.state.value.serviceStatusMessage)
+    }
+
+    @Test
+    fun `quick setup saves then checks service refreshes catalog and starts preview`() = runTest(dispatcher) {
+        val repository = FakeSettingsRepository(ConfigSnapshot(3, TtsConfig(character = "旧音色")))
+        val events = mutableListOf<String>()
+        val catalog = object : CatalogGateway {
+            override suspend fun refresh(baseUrl: String): CatalogState {
+                events += "catalog"
+                return CatalogState.Fresh(CharacterCatalog(mapOf("花火" to listOf("开心"))))
+            }
+        }
+        val connection = object : ConnectionTester {
+            override suspend fun test(config: TtsConfig): Result<Unit> {
+                events += "connection"
+                return Result.success(Unit)
+            }
+        }
+        val preview = object : PreviewController {
+            override suspend fun preview(
+                text: String,
+                config: TtsConfig,
+                listener: PreviewListener
+            ): Result<Unit> {
+                events += "preview"
+                listener.onStarted()
+                return Result.success(Unit)
+            }
+
+            override suspend fun stop() = Unit
+        }
+        val viewModel = viewModel(repository, catalog, connection, preview)
+
+        viewModel.edit { it.copy(baseUrl = "https://tts.example.test/", character = "花火") }
+        viewModel.quickSetup()
+        advanceUntilIdle()
+
+        assertEquals(4, repository.snapshot.version)
+        assertEquals(listOf("connection", "catalog", "preview"), events)
+        assertEquals(ServiceStatus.AVAILABLE, viewModel.state.value.serviceStatus)
+        assertTrue(viewModel.state.value.isPreviewing)
+    }
+
+    @Test
+    fun `stable base url automatically checks service and refreshes catalog without preview`() = runTest(dispatcher) {
+        val repository = FakeSettingsRepository(ConfigSnapshot(0, TtsConfig()))
+        val events = mutableListOf<String>()
+        val connection = RecordingConnectionTester().also { tester ->
+            tester.onTest = { events += "connection" }
+        }
+        val catalog = RecordingCatalogGateway().also { gateway ->
+            gateway.onRefresh = { events += "catalog" }
+        }
+        val preview = RecordingPreviewController()
+        val viewModel = viewModel(repository, catalog, connection, preview)
+
+        viewModel.edit { it.copy(baseUrl = "https://tts.example.test/") }
+        advanceUntilIdle()
+
+        assertEquals(listOf("connection", "catalog"), events)
+        assertEquals(ServiceStatus.AVAILABLE, viewModel.state.value.serviceStatus)
+        assertFalse(viewModel.state.value.isPreviewing)
+    }
+
+    @Test
+    fun `initialization checks service and refreshes catalog without starting preview`() = runTest(dispatcher) {
+        val events = mutableListOf<String>()
+        val viewModel = viewModel(
+            repository = FakeSettingsRepository(
+                ConfigSnapshot(0, TtsConfig(baseUrl = "https://tts.example.test/"))
+            ),
+            catalog = RecordingCatalogGateway().also { it.onRefresh = { events += "catalog" } },
+            connection = RecordingConnectionTester().also { it.onTest = { events += "connection" } }
+        )
+
+        viewModel.initialize()
+        advanceUntilIdle()
+
+        assertEquals(listOf("connection", "catalog"), events)
+        assertFalse(viewModel.state.value.isPreviewing)
     }
 
     @Test
@@ -341,7 +420,7 @@ class SettingsViewModelTest {
         ),
         connection: ConnectionTester = RecordingConnectionTester(),
         preview: PreviewController = RecordingPreviewController()
-    ) = SettingsViewModel(repository, catalog, connection, preview)
+    ) = SettingsOperationController(repository, catalog, connection, preview)
 
     private class FakeSettingsRepository(initial: ConfigSnapshot) : SettingsRepository {
         private val flow = MutableStateFlow(initial)
@@ -375,17 +454,21 @@ class SettingsViewModelTest {
         private val result: CatalogState = CatalogState.Fresh(CharacterCatalog(emptyMap()))
     ) : CatalogGateway {
         var calls = 0
+        var onRefresh: (() -> Unit)? = null
 
         override suspend fun refresh(baseUrl: String): CatalogState {
             calls++
+            onRefresh?.invoke()
             return result
         }
     }
 
     private class RecordingConnectionTester : ConnectionTester {
         var lastConfig: TtsConfig? = null
+        var onTest: (() -> Unit)? = null
         override suspend fun test(config: TtsConfig): Result<Unit> {
             lastConfig = config
+            onTest?.invoke()
             return Result.success(Unit)
         }
     }

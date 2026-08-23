@@ -143,7 +143,7 @@ class TtsSessionCoordinator(
                         if (!utterancePlayed) {
                             utterancePlayed = true
                             if (session.reportUtteranceProgress) {
-                                session.callbacks.onUtteranceStarted(utterance.index)
+                                session.callbacks.onUtteranceStarted(utterance)
                             }
                         }
                         ensureCurrent(session.generation)

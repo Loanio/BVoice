@@ -26,6 +26,8 @@ Hook 通过受限 `ContentProvider` 写入简短状态：
 
 检查“启用第三方 TTS”、严格模式和 Hook 状态。12.9.9 应显示 `engine=true;transport=false`；若引擎方法签名变化，需要提供 APK/JADX 结果更新版本描述符。
 
+如果只有菜单里的“播报全文”使用原音色，先检查小布是否已重启。12.9.9 的该菜单路径可能只有 `O0` 分片和 `J0` 结束调用，没有流开始调用；新版模块会在首个分片创建隐式流并在结束时一次提交 `/tts`。日志应出现 `engine_stream_chunk`、`engine_stream_end`，随后出现 `api_request endpoint=tts`。
+
 ### 小布无声
 
 先关闭严格模式并开启原 TTS 回退。若第三方已经开始播放后失败，系统不会重播原语音，以免双重播报；检查 WAV 格式、服务响应和 AudioTrack 诊断。

@@ -1,10 +1,10 @@
 package dev.breenottshook.ui
 
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertIsNotEnabled
 import dev.breenottshook.config.TtsConfig
 import org.junit.Rule
 import org.junit.Test
@@ -19,7 +19,7 @@ class SettingsScreenTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun `initial screen shows one preview action and keeps advanced fields collapsed`() {
+    fun `initial screen keeps expert controls collapsed behind one setup action`() {
         composeRule.setContent {
             SettingsScreen(
                 state = SettingsUiState(
@@ -29,18 +29,52 @@ class SettingsScreenTest {
                 ),
                 onEdit = {},
                 onUpdateCoreSetting = {},
-                onSave = {},
-                onRefreshCatalog = {},
                 onTestConnection = {},
                 onPreview = {},
+                onAddressBlur = {},
                 onStopPreview = {},
                 onResetDefaults = {}
             )
         }
 
-        composeRule.onNodeWithText("试听").assertIsDisplayed()
-        composeRule.onAllNodesWithText("停止试听").assertCountEquals(0)
-        composeRule.onAllNodesWithText("API 地址").assertCountEquals(0)
-        composeRule.onNodeWithText("高级设置").assertIsDisplayed()
+        composeRule.onAllNodesWithText("点击卡片测试连接并刷新音色").assertCountEquals(1)
+        composeRule.onAllNodesWithText("试听当前音色").assertCountEquals(1)
+        composeRule.onAllNodesWithText("刷新音色").assertCountEquals(0)
+        composeRule.onAllNodesWithText("测试连接").assertCountEquals(0)
+        composeRule.onAllNodesWithText("试听").assertCountEquals(0)
+        composeRule.onAllNodesWithText("API 地址").assertCountEquals(1)
+        composeRule.onAllNodesWithText("使用手动音色").assertCountEquals(0)
+        composeRule.onAllNodesWithText("高级设置").assertCountEquals(1)
     }
+
+    @Test
+    fun `busy state disables core toggles and voice pickers`() {
+        composeRule.setContent {
+            SettingsScreen(
+                state = SettingsUiState(
+                    persistedVersion = 7,
+                    persisted = TtsConfig(),
+                    draft = TtsConfig(
+                        enabled = true,
+                        character = "花火",
+                        emotion = "开心"
+                    ),
+                    characters = listOf("花火"),
+                    emotions = listOf("开心"),
+                    operation = SettingsOperation.PREVIEWING
+                ),
+                onEdit = {},
+                onUpdateCoreSetting = {},
+                onTestConnection = {},
+                onPreview = {},
+                onAddressBlur = {},
+                onStopPreview = {},
+                onResetDefaults = {}
+            )
+        }
+
+        composeRule.onNodeWithText("花火").assertIsNotEnabled()
+        composeRule.onNodeWithText("开心").assertIsNotEnabled()
+    }
+
 }

@@ -7,6 +7,7 @@ import dev.breenottshook.session.TtsInvocation
 import dev.breenottshook.session.TtsUtterance
 import dev.breenottshook.session.splitUtterances
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -17,6 +18,7 @@ class BreenoEngineRuntime(
         submit(TtsInvocation(utterances.joinToString("") { it.text }, original, callbacks))
     },
     private val cancelHandler: suspend (String) -> Unit,
+    private val implicitListenerProvider: () -> Any? = { null },
     private val scope: CoroutineScope? = null,
     private val diagnostics: (String) -> Unit = {}
 ) {
@@ -53,7 +55,7 @@ class BreenoEngineRuntime(
         if (accumulator.append(text) == AppendResult.Ignored) {
             // The host's “read full text” action can emit O0/J0 without P0.
             // Create an implicit generation so this path still uses third-party TTS.
-            accumulator.start(newListener = null, newBundle = null)
+            accumulator.start(newListener = implicitListenerProvider(), newBundle = null)
             streamStartOriginal = null
             streamChunkOriginals = mutableListOf()
             streamEndOriginal = null
@@ -93,7 +95,8 @@ class BreenoEngineRuntime(
     fun cancel(reason: String) {
         accumulator.cancel()?.let { replay(it, streamStartOriginal, streamChunkOriginals, streamEndOriginal) }
         clearStreamOriginals()
-        launch { cancelHandler(reason) }
+        scope?.launch(start = CoroutineStart.UNDISPATCHED) { runCatching { cancelHandler(reason) } }
+            ?: launch { cancelHandler(reason) }
     }
 
     private fun invocation(text: String, callbacks: TtsCallbacks, original: () -> Unit) =

@@ -466,9 +466,9 @@ class TtsSessionCoordinatorTest {
         var cancelCount = 0
         override fun onStarted() = Unit
         val utteranceStarts = mutableListOf<Int>()
-        override fun onUtteranceStarted(index: Int) {
-            utteranceStarts += index
-            events?.add("started:$index")
+        override fun onUtteranceStarted(utterance: TtsUtterance) {
+            utteranceStarts += utterance.index
+            events?.add("started:${utterance.index}")
         }
         override fun onCompleted() {
             completeCount++

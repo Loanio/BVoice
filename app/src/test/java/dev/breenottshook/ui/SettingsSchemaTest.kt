@@ -83,4 +83,18 @@ class SettingsSchemaTest {
             SettingsSchema.edit(TtsConfig(), "missing", "value")
         )
     }
+
+    @Test
+    fun `enabling manual voice seeds empty manual fields from current selection`() {
+        val result = SettingsSchema.edit(
+            TtsConfig(character = "花火", emotion = "开心"),
+            "useManualVoice",
+            "true"
+        )
+
+        assertTrue(result is SchemaEditResult.Success)
+        val config = (result as SchemaEditResult.Success).config
+        assertEquals("花火", config.manualCharacter)
+        assertEquals("开心", config.manualEmotion)
+    }
 }

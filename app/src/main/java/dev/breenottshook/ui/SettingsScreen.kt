@@ -1,5 +1,6 @@
 package dev.breenottshook.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,7 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -20,10 +21,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.tooling.preview.Preview
@@ -40,10 +43,9 @@ fun SettingsScreen(
     state: SettingsUiState,
     onEdit: (TtsConfig) -> Unit,
     onUpdateCoreSetting: (TtsConfig) -> Unit,
-    onSave: () -> Unit,
-    onRefreshCatalog: () -> Unit,
     onTestConnection: () -> Unit,
     onPreview: () -> Unit,
+    onAddressBlur: () -> Unit,
     onStopPreview: () -> Unit,
     onResetDefaults: () -> Unit,
     modifier: Modifier = Modifier
@@ -62,22 +64,15 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodyMedium
             )
 
+            CoreSettingsSection(state = state, onUpdateCoreSetting = onUpdateCoreSetting)
+            ServiceSettingsSection(state = state, onEdit = onEdit, onAddressBlur = onAddressBlur)
             StatusSection(
                 state = state,
-                onRefreshCatalog = onRefreshCatalog,
-                onTestConnection = onTestConnection,
-                onPreview = onPreview,
-                onStopPreview = onStopPreview
+                onTestConnection = onTestConnection
             )
-
-            AdvancedSettingsSection(
-                state = state,
-                onEdit = onEdit,
-                onSave = onSave,
-                onResetDefaults = onResetDefaults
-            )
-            CoreSettingsSection(state = state, onUpdateCoreSetting = onUpdateCoreSetting)
+            PreviewSection(state = state, onPreview = onPreview, onStopPreview = onStopPreview)
             VoiceSection(state = state, onUpdateCoreSetting = onUpdateCoreSetting)
+            AdvancedSettingsSection(state = state, onEdit = onEdit, onResetDefaults = onResetDefaults)
         }
     }
 }
@@ -85,50 +80,49 @@ fun SettingsScreen(
 @Composable
 private fun StatusSection(
     state: SettingsUiState,
-    onRefreshCatalog: () -> Unit,
-    onTestConnection: () -> Unit,
-    onPreview: () -> Unit,
-    onStopPreview: () -> Unit
+    onTestConnection: () -> Unit
 ) {
-    SettingsSectionCard(title = "服务状态") {
-        Text(serviceStatusText(state), style = MaterialTheme.typography.bodyLarge)
-        state.message?.takeIf { it != state.serviceStatusMessage }?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall)
-        }
-        Spacer(Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedButton(
-                onClick = onRefreshCatalog,
-                enabled = state.operation == SettingsOperation.IDLE,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("刷新音色")
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                enabled = state.operation == SettingsOperation.IDLE && !state.isBusy,
+                onClick = onTestConnection
+            )
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text("服务状态", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(8.dp))
+            Text(serviceStatusText(state), style = MaterialTheme.typography.bodyLarge)
+            state.message?.takeIf { it != state.serviceStatusMessage }?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall)
             }
-            OutlinedButton(
-                onClick = onTestConnection,
-                enabled = state.operation == SettingsOperation.IDLE,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("测试连接")
+            Spacer(Modifier.height(4.dp))
+            Text("点击卡片测试连接并刷新音色", style = MaterialTheme.typography.bodySmall)
+            if (state.isBusy) {
+                Spacer(Modifier.height(8.dp))
+                CircularProgressIndicator()
             }
         }
-        Spacer(Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            OutlinedButton(
-                onClick = if (state.isPreviewing) onStopPreview else onPreview,
+    }
+}
+
+@Composable
+private fun PreviewSection(state: SettingsUiState, onPreview: () -> Unit, onStopPreview: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
                 enabled = state.operation == SettingsOperation.IDLE || state.isPreviewing,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(if (state.isPreviewing) "停止试听" else "试听")
-            }
-            if (state.isBusy) CircularProgressIndicator()
+                onClick = if (state.isPreviewing) onStopPreview else onPreview
+            )
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(if (state.isPreviewing) "正在试听" else "试听当前音色", style = MaterialTheme.typography.titleLarge)
+            Text(
+                if (state.isPreviewing) "点击停止试听" else "使用当前已自动保存的角色与情感",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
@@ -147,20 +141,40 @@ private fun CoreSettingsSection(
             onCheckedChange = { onUpdateCoreSetting(state.draft.copy(enabled = it)) },
             enabled = controlsEnabled
         )
-        BooleanSetting(
-            label = "使用手动音色",
-            description = "立即切换到当前保存的手动角色与情感",
-            checked = state.draft.useManualVoice,
-            onCheckedChange = { onUpdateCoreSetting(state.draft.copy(useManualVoice = it)) },
-            enabled = controlsEnabled
+    }
+}
+
+@Composable
+private fun ServiceSettingsSection(
+    state: SettingsUiState,
+    onEdit: (TtsConfig) -> Unit,
+    onAddressBlur: () -> Unit
+) {
+    var wasFocused by remember { mutableStateOf(false) }
+    SettingsSectionCard(title = "服务配置") {
+        OutlinedTextField(
+            value = state.draft.baseUrl,
+            onValueChange = { onEdit(state.draft.copy(baseUrl = it)) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .onFocusChanged { focusState ->
+                    if (wasFocused && !focusState.isFocused) onAddressBlur()
+                    wasFocused = focusState.isFocused
+                },
+            label = { Text("API 地址") },
+            isError = state.validationIssues.containsKey("baseUrl"),
+            supportingText = {
+                Text(state.validationIssues["baseUrl"] ?: "GPT-SoVITS 服务根地址")
+            },
+            enabled = state.operation == SettingsOperation.IDLE && !state.isBusy
         )
-        BooleanSetting(
-            label = "失败时使用原 TTS",
-            description = "仅在第三方音频开始播放前允许回退",
-            checked = state.draft.fallbackToOriginal,
-            onCheckedChange = { onUpdateCoreSetting(state.draft.copy(fallbackToOriginal = it)) },
-            enabled = controlsEnabled
-        )
+        if (state.draft.baseUrl.trim().startsWith("http://", ignoreCase = true)) {
+            Text(
+                "HTTP 连接未加密，请勿在不可信网络传输敏感文本。",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
     }
 }
 
@@ -196,7 +210,6 @@ private fun VoiceSection(
 private fun AdvancedSettingsSection(
     state: SettingsUiState,
     onEdit: (TtsConfig) -> Unit,
-    onSave: () -> Unit,
     onResetDefaults: () -> Unit
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -210,49 +223,38 @@ private fun AdvancedSettingsSection(
         if (!expanded) {
             Spacer(Modifier.height(8.dp))
             Text(
-                "需要修改 API 地址、试听文本或高级生成参数时再展开。",
+                "手动音色、音频格式、试听文本和兼容性参数集中在这里。",
                 style = MaterialTheme.typography.bodyMedium
             )
             return@SettingsSectionCard
         }
 
         Spacer(Modifier.height(12.dp))
-        advancedFields.forEach { field ->
+        advancedFields.filter { field ->
+            state.draft.useManualVoice || field.key !in manualVoiceFieldKeys
+        }.forEach { field ->
             SchemaFieldEditor(
                 field = field,
                 config = state.draft,
                 issue = state.validationIssues[field.key],
                 onEdit = onEdit
             )
-            if (field.key == "baseUrl" &&
-                state.draft.baseUrl.trim().startsWith("http://", ignoreCase = true)
-            ) {
-                Text(
-                    "HTTP 连接未加密，请勿在不可信网络传输敏感文本。",
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
         }
         Spacer(Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Text(
+            text = when {
+                state.isBusy -> "正在自动保存…"
+                state.hasUnsavedChanges -> "有未保存更改，稍后会自动保存"
+                else -> "高级设置会自动保存"
+            },
+            style = MaterialTheme.typography.bodyMedium
+        )
+        OutlinedButton(
+            onClick = onResetDefaults,
+            enabled = !state.isBusy,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Button(
-                onClick = onSave,
-                enabled = !state.isBusy && state.hasUnsavedChanges,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("保存高级设置")
-            }
-            OutlinedButton(
-                onClick = onResetDefaults,
-                enabled = !state.isBusy,
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("恢复默认草稿")
-            }
+            Text("恢复默认值并自动保存")
         }
         DiagnosticsPanel(
             version = state.persistedVersion,
@@ -350,15 +352,16 @@ private fun serviceStatusText(state: SettingsUiState): String = when (state.serv
     ServiceStatus.UNAVAILABLE -> state.serviceStatusMessage ?: "服务连接不可用"
 }
 
-private val coreSettingKeys = setOf(
+private val visibleSettingKeys = setOf(
     "enabled",
+    "baseUrl",
     "character",
-    "emotion",
-    "useManualVoice",
-    "fallbackToOriginal"
+    "emotion"
 )
 
-private val advancedFields = SettingsSchema.fields.filterNot { it.key in coreSettingKeys }
+private val advancedFields = SettingsSchema.fields.filterNot { it.key in visibleSettingKeys }
+
+private val manualVoiceFieldKeys = setOf("manualCharacter", "manualEmotion")
 
 @Preview(showBackground = true)
 @Composable
@@ -368,10 +371,9 @@ private fun SettingsScreenPreview() {
             state = SettingsUiState(0, TtsConfig(), TtsConfig()),
             onEdit = {},
             onUpdateCoreSetting = {},
-            onSave = {},
-            onRefreshCatalog = {},
             onTestConnection = {},
             onPreview = {},
+            onAddressBlur = {},
             onStopPreview = {},
             onResetDefaults = {}
         )

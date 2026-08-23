@@ -4,7 +4,7 @@
 
 构建一个基于 Yuki Hook API 的 LSPosed 模块，为 Android 15 / ColorOS 15 上的小布助手 `com.heytap.speechassist` 替换所有进入同一 TTS 组件的播报。首个稳定目标版本为小布助手 11.8.3，其他版本通过保守的特征探测提供实验兼容。
 
-第三方服务默认为 `http://47.111.184.220:5000/`，接口遵循 GPT-SoVITS-Inference 文档：`POST /tts` 用于合成，`GET /character_list` 用于获取角色及情感。用户可在 BreenoTTSHook 模块 APP 和注入的小布设置页中编辑全部配置，两处使用同一份跨进程数据。
+第三方服务地址由用户配置，接口遵循 GPT-SoVITS-Inference 文档：`POST /tts` 用于合成，`GET /character_list` 用于获取角色及情感。用户可在 BreenoTTSHook 模块 APP 和注入的小布设置页中编辑全部配置，两处使用同一份跨进程数据。
 
 ## 成功标准
 
@@ -152,5 +152,5 @@ Robolectric 或 Android 测试覆盖 Provider 调用方检查、原子配置更�
 ## 已知约束
 
 - 当前设计阶段没有可调用的 JADX 上下文；小布原播放器的精确类和方法必须在实施阶段通过目标 APK或连接设备重新验证。
-- 默认服务使用明文 HTTP，用户文本可能被网络路径观察；界面必须明确提示。
+- 用户配置的服务可能使用明文 HTTP，文本可能被网络路径观察；界面必须明确提示。
 - 目标目录初始为空且不是 Git 仓库，实施前需初始化 Android/Gradle 工程和版本控制。

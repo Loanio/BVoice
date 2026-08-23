@@ -18,7 +18,9 @@ object ConfigValidator {
 
     fun validate(config: TtsConfig): ValidationResult {
         val issues = buildList {
-            if (!isHttpUrl(config.baseUrl)) add(ConfigIssue("baseUrl", "仅支持 HTTP 或 HTTPS 地址"))
+            if (config.baseUrl.isNotBlank() && !isHttpUrl(config.baseUrl)) {
+                add(ConfigIssue("baseUrl", "请输入 HTTP 或 HTTPS 地址"))
+            }
             if (!config.speed.isFinite() || config.speed <= 0.0) {
                 add(ConfigIssue("speed", "语速必须大于 0"))
             }
@@ -37,7 +39,9 @@ object ConfigValidator {
             }
         }
         if (issues.isNotEmpty()) return ValidationResult.Invalid(issues)
-        return ValidationResult.Valid(config.copy(baseUrl = normalizeBaseUrl(config.baseUrl)))
+        return ValidationResult.Valid(
+            config.copy(baseUrl = config.baseUrl.takeUnless { it.isBlank() }?.let(::normalizeBaseUrl).orEmpty())
+        )
     }
 
     private fun isHttpUrl(value: String): Boolean = runCatching {

@@ -26,7 +26,9 @@ class EngineTtsInstallerTest {
 
     @Test
     fun `resolver rejects missing or overloaded signatures`() {
-        assertTrue(EngineTtsInstaller.resolve(Missing::class.java, descriptor) is EngineInstallResult.Disabled)
+        val missing = EngineTtsInstaller.resolve(Missing::class.java, descriptor)
+        assertTrue(missing is EngineInstallResult.Disabled)
+        assertTrue((missing as EngineInstallResult.Disabled).reason.contains("candidates="))
         assertTrue(EngineTtsInstaller.resolve(WrongSignature::class.java, descriptor) is EngineInstallResult.Disabled)
     }
 

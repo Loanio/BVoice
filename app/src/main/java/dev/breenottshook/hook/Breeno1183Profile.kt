@@ -14,7 +14,7 @@ class Breeno1183Profile : VersionProfile {
     )
 
     override fun matches(packageVersion: String, classProbe: ClassProbe): Boolean =
-        packageVersion == SUPPORTED_VERSION && classProbe.exists(
+        classProbe.exists(
             (ttsRoute as TtsRoute.WebSocket).descriptor.className
         )
 

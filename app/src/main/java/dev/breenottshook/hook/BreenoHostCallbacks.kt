@@ -1,6 +1,7 @@
 package dev.breenottshook.hook
 
 import dev.breenottshook.session.TtsCallbacks
+import dev.breenottshook.session.TtsUtterance
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
 
@@ -21,7 +22,7 @@ object BreenoHostCallbacks {
         startName = "onSpeakBegin",
         completeName = "onEnd",
         streamCompleteName = "onCompleted",
-        utteranceStartName = "onUtteranceStarted"
+        utteranceStartName = "onNextSliceStart"
     )
 
     private class ReflectiveCallbacks(
@@ -40,8 +41,8 @@ object BreenoHostCallbacks {
             invoke(startName)
         }
 
-        override fun onUtteranceStarted(index: Int) {
-            utteranceStartName?.let { invoke(it, index) }
+        override fun onUtteranceStarted(utterance: TtsUtterance) {
+            utteranceStartName?.let { invokeSlice(it, utterance) }
         }
 
         @Synchronized
@@ -81,6 +82,23 @@ object BreenoHostCallbacks {
             val method = MethodCache.resolve(target.javaClass, name, args)
                 ?: return
             runCatching { method.invoke(target, *args) }
+                .onFailure { diagnostic(name, it) }
+        }
+
+        private fun invokeSlice(name: String, utterance: TtsUtterance) {
+            val target = listener ?: return
+            val method = (target.javaClass.methods.asSequence() + target.javaClass.declaredMethods.asSequence())
+                .firstOrNull { it.name == name && it.parameterCount == 1 }
+                ?.apply { isAccessible = true } ?: return
+            val type = method.parameterTypes.single()
+            val value = runCatching {
+                type.getConstructor(Int::class.javaPrimitiveType, String::class.java, Long::class.javaPrimitiveType)
+                    .newInstance(utterance.index, utterance.text, utterance.text.length.toLong())
+            }.getOrElse {
+                diagnostic("$name:payload", it)
+                return
+            }
+            runCatching { method.invoke(target, value) }
                 .onFailure { diagnostic(name, it) }
         }
 

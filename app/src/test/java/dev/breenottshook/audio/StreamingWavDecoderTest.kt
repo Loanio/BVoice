@@ -59,6 +59,33 @@ class StreamingWavDecoderTest {
     }
 
     @Test
+    fun `decodes PCM appended after a zero length streaming WAV header`() {
+        val pcm = byteArrayOf(1, 2, 3, 4, 5, 6)
+        val decoder = StreamingWavDecoder()
+
+        val output = decoder.feed(WavFixtures.streamingPcmWavHeader(sampleRate = 32_000)) +
+            decoder.feed(pcm.copyOfRange(0, 2)) +
+            decoder.feed(pcm.copyOfRange(2, pcm.size))
+
+        assertEquals(PcmFormat(32_000, 1, 16), output.first().format)
+        assertArrayEquals(pcm, output.flatMap { it.bytes.toList() }.toByteArray())
+        assertEquals(DecodeFinish.Complete, decoder.finish())
+    }
+
+    @Test
+    fun `holds incomplete PCM frame across streaming chunks`() {
+        val decoder = StreamingWavDecoder()
+        decoder.feed(WavFixtures.streamingPcmWavHeader(sampleRate = 32_000))
+
+        assertTrue(decoder.feed(byteArrayOf(1)).isEmpty())
+        val aligned = decoder.feed(byteArrayOf(2))
+
+        assertArrayEquals(byteArrayOf(1, 2), aligned.single().bytes)
+        assertArrayEquals(byteArrayOf(3, 4), decoder.feed(byteArrayOf(3, 4)).single().bytes)
+        assertEquals(DecodeFinish.Complete, decoder.finish())
+    }
+
+    @Test
     fun `reports truncated final WAV`() {
         val wav = WavFixtures.pcmWav(byteArrayOf(1, 2, 3, 4))
         val decoder = StreamingWavDecoder()

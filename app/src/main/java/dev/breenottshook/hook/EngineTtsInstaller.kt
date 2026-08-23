@@ -23,9 +23,27 @@ object EngineTtsInstaller {
         }
         val methods = listOf(descriptor.speak, descriptor.streamStart, descriptor.streamChunk, descriptor.streamEnd)
         val resolved = methods.map(::find)
-        if (resolved.any { it == null }) return EngineInstallResult.Disabled("engine descriptor mismatch")
+        if (resolved.any { it == null }) {
+            return EngineInstallResult.Disabled(
+                "engine descriptor mismatch;candidates=${describeCandidates(clazz)}"
+            )
+        }
         return EngineInstallResult.Ready(
             EngineMethods(resolved[0]!!, resolved[1]!!, resolved[2]!!, resolved[3]!!)
         )
     }
+
+    private fun describeCandidates(clazz: Class<*>): String = clazz.declaredMethods
+        .filter { method ->
+            method.returnType == Void.TYPE && (
+                (method.parameterCount == 4 && method.parameterTypes.firstOrNull() == String::class.java) ||
+                    (method.parameterCount == 2 && method.parameterTypes.lastOrNull()?.name == "android.os.Bundle") ||
+                    (method.parameterCount == 1 && method.parameterTypes.single() == String::class.java) ||
+                    method.parameterCount == 0
+                )
+        }
+        .joinToString("|") { method ->
+            "${method.name}(${method.parameterTypes.joinToString(",") { it.name.substringAfterLast('.') }})"
+        }
+        .take(1800)
 }

@@ -96,7 +96,7 @@ HookEntry / Vector
 
 模块 APP 继续提供全部配置项。小布设置页注入只选择与当前 Profile 完全匹配且已验证的 Activity 或 Fragment 描述符；找不到唯一宿主时发布 `settings_disabled`，不向任意页面添加 View。
 
-注入入口打开 `HostSettingsDialog`，展示与模块 APP 相同的全部字段，而不是简化子集。两端通过同一受限 ContentProvider 原子读取和写入：只允许模块包和小布包访问；成功保存递增 `configVersion` 并发送变更通知；小布热路径使用最后有效内存快照。
+注入入口打开 `HostSettingsPage`，由 `HostSettingsContent` 展示与模块 APP 相同的全部字段。两端通过同一受限 ContentProvider 原子读取和写入：只允许模块包和小布包访问；成功保存递增 `configVersion` 并发送变更通知；小布热路径使用最后有效内存快照。
 
 设置宿主只负责入口生命周期，不复制配置状态。角色刷新、手动角色/情感、URL、超时、流式参数、采样与播放选项、回退开关、严格模式、播放器调试开关和日志等级都必须双向一致。
 

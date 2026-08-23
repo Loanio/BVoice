@@ -124,6 +124,7 @@ class BreenoHooker : YukiBaseHooker() {
                 coordinator.submitStream(utterances, callbacks, originalCall)
             },
             cancelHandler = { coordinator.cancelActive(it) },
+            implicitListenerProvider = ::resolveNativeHighlightListener,
             scope = scope,
             diagnostics = { message -> Log.i(LOG_TAG, message) }
         )
@@ -177,8 +178,60 @@ class BreenoHooker : YukiBaseHooker() {
             }
         }
         Log.i(LOG_TAG, "engine_install stage=hooked;method=${methods.streamEnd.name}")
+        installEngineStop(clazz, runtime)
+        installNativeMuteStop(runtime)
         status.publish("active", "profile=${profile.id};engine=true;transport=false;originalPlayer=false")
     }
+
+    private fun installEngineStop(engineClass: Class<*>, runtime: BreenoEngineRuntime) {
+        val stop = NativeStopResolver.resolveEngineStop(engineClass) ?: run {
+            Log.i(LOG_TAG, "mute_engine_hook skipped=method_missing")
+            return
+        }
+        stop.hook {
+            before {
+                Log.i(LOG_TAG, "mute_engine_hook invoked=true")
+                runtime.cancel("native engine stop")
+            }
+        }
+        Log.i(LOG_TAG, "mute_engine_hook hooked=true;method=${stop.name}")
+    }
+
+    private fun installNativeMuteStop(runtime: BreenoEngineRuntime) {
+        val manager = runCatching {
+            Class.forName(
+                "com.heytap.speechassist.aichat.streamtts.AiChatTTSHighlightPlayManager",
+                false,
+                appClassLoader
+            )
+        }.getOrNull() ?: run {
+            Log.i(LOG_TAG, "mute_hook skipped=manager_missing")
+            return
+        }
+        val stop = NativeStopResolver.resolve(manager)
+            ?: run {
+                Log.i(LOG_TAG, "mute_hook skipped=method_missing")
+                return
+            }
+        stop.hook {
+            before {
+                Log.i(LOG_TAG, "mute_hook invoked=true")
+                runtime.cancel("native mute")
+            }
+        }
+        Log.i(LOG_TAG, "mute_hook hooked=true;method=${stop.name}")
+    }
+
+    private fun resolveNativeHighlightListener(): Any? = runCatching {
+        val manager = Class.forName(
+            "com.heytap.speechassist.aichat.streamtts.AiChatTTSHighlightPlayManager",
+            false,
+            appClassLoader
+        )
+        NativeHighlightListenerResolver.resolve(manager) { message -> Log.i(LOG_TAG, message) }
+    }.onFailure {
+        Log.i(LOG_TAG, "highlight_listener_resolve failed=${it.javaClass.simpleName}")
+    }.getOrNull()
 
     private fun installTransportFallback(
         context: Context,

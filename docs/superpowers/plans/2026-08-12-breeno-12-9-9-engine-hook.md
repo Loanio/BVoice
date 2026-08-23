@@ -12,7 +12,7 @@
 
 - Support only exact Breeno versions `11.8.3` and `12.9.9`; future versions remain unsupported until reverified.
 - Keep `11.8.3` on the existing guarded `RealWebSocket` route.
-- Use the configured GPT-SoVITS root URL, default `http://47.111.184.220:5000/`.
+- Use the GPT-SoVITS root URL entered by the user.
 - Preserve `GET /character_list` and `POST /tts` with every existing JSON request field unchanged.
 - Do not hook every call to the global SDK `com.heytap.speechassist.sdk.TTSEngine`.
 - Do not use an unverified Breeno original-player injection point; use `AudioTrackSink` for 12.9.9.
@@ -342,7 +342,7 @@ state=settings_active
 
 - [ ] **Step 5: Verify the configured API before end-to-end playback**
 
-From the module APP, run “测试连接”, refresh characters, select a valid role/emotion, save, and run preview. Require a successful request to `47.111.184.220:5000`; do not log test text or the catalog response.
+From the module APP, run “测试连接”, refresh characters, select a valid role/emotion, save, and run preview. Require a successful request to the configured service; do not log test text or the catalog response.
 
 - [ ] **Step 6: Verify normal and stream utterances**
 

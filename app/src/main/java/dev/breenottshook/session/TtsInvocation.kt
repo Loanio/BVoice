@@ -6,7 +6,7 @@ fun interface OriginalCall {
 
 interface TtsCallbacks {
     fun onStarted()
-    fun onUtteranceStarted(index: Int) = Unit
+    fun onUtteranceStarted(utterance: TtsUtterance) = Unit
     fun onCompleted()
     fun onError(error: Throwable)
     fun onCancelled(reason: String)

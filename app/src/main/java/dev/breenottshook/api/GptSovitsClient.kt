@@ -5,6 +5,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
@@ -26,7 +27,8 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 class GptSovitsClient(
     private val baseClient: OkHttpClient,
-    private val maxResponseBytes: Long = 64L * 1024 * 1024
+    private val maxResponseBytes: Long = 64L * 1024 * 1024,
+    private val diagnostics: (ApiDiagnosticEvent) -> Unit = {}
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -75,41 +77,67 @@ class GptSovitsClient(
             .connectTimeout(config.connectTimeoutMs, TimeUnit.MILLISECONDS)
             .readTimeout(config.readTimeoutMs, TimeUnit.MILLISECONDS)
             .build()
-        val call = client.newCall(request)
-        val cancellationHandle = coroutineContext.job.invokeOnCompletion { cause ->
-            if (cause is CancellationException) call.cancel()
-        }
-        try {
-            val response = try {
-                call.execute()
-            } catch (error: IOException) {
-                throw ApiException(ApiError.Network(error.message ?: "Network failure"), error)
+        var attempt = 1
+        while (true) {
+            diagnostics(
+                ApiDiagnosticEvent.RequestStarted(
+                    endpoint = "tts",
+                    stream = config.stream,
+                    chars = text.length,
+                    connectTimeoutMs = config.connectTimeoutMs,
+                    readTimeoutMs = config.readTimeoutMs,
+                    character = config.effectiveCharacter,
+                    emotion = config.effectiveEmotion,
+                    attempt = attempt
+                )
+            )
+            val call = client.newCall(request)
+            val cancellationHandle = coroutineContext.job.invokeOnCompletion { cause ->
+                if (cause is CancellationException) call.cancel()
             }
-            response.use {
-                if (!it.isSuccessful) {
-                    throw ApiException(
-                        ApiError.Http(it.code, it.body?.string().orEmpty().take(1_024))
-                    )
+            try {
+                val response = try {
+                    call.execute()
+                } catch (error: IOException) {
+                    diagnostics(ApiDiagnosticEvent.NetworkFailure("tts", error.javaClass.simpleName))
+                    throw ApiException(ApiError.Network(error.message ?: "Network failure"), error)
                 }
-                val source = it.body?.source()
-                    ?: throw ApiException(ApiError.Protocol("Empty synthesis response"))
-                var total = 0L
-                val buffer = okio.Buffer()
-                while (true) {
-                    coroutineContext.ensureActive()
-                    val read = source.read(buffer, NETWORK_CHUNK_SIZE)
-                    if (read == -1L) break
-                    total += read
-                    if (total > maxResponseBytes) {
-                        throw ApiException(ApiError.ResponseTooLarge(maxResponseBytes))
+                val result = response.use {
+                    if (!it.isSuccessful) {
+                        val body = it.body?.string().orEmpty().take(1_024)
+                        diagnostics(ApiDiagnosticEvent.HttpFailure("tts", it.code, body, attempt))
+                        if (it.code in RETRYABLE_HTTP_CODES && attempt < MAX_SYNTHESIS_ATTEMPTS) {
+                            delay(RETRY_DELAYS_MS[(attempt - 1).coerceAtMost(RETRY_DELAYS_MS.lastIndex)])
+                            attempt++
+                            null
+                        } else {
+                            throw ApiException(ApiError.Http(it.code, body))
+                        }
+                    } else {
+                        diagnostics(ApiDiagnosticEvent.ResponseReceived("tts", it.code, it.header("Content-Type"), attempt))
+                        val source = it.body?.source()
+                            ?: throw ApiException(ApiError.Protocol("Empty synthesis response"))
+                        var total = 0L
+                        val buffer = okio.Buffer()
+                        while (true) {
+                            coroutineContext.ensureActive()
+                            val read = source.read(buffer, NETWORK_CHUNK_SIZE)
+                            if (read == -1L) break
+                            total += read
+                            if (total > maxResponseBytes) {
+                                throw ApiException(ApiError.ResponseTooLarge(maxResponseBytes))
+                            }
+                            onBytes(buffer.readByteArray(read))
+                        }
+                        SynthesisResult(it.header("Content-Type"), total)
                     }
-                    onBytes(buffer.readByteArray(read))
                 }
-                SynthesisResult(it.header("Content-Type"), total)
+                if (result != null) return@withContext result
+            } finally {
+                cancellationHandle.dispose()
             }
-        } finally {
-            cancellationHandle.dispose()
         }
+        error("synthesis retry loop terminated unexpectedly")
     }
 
     private suspend fun <T> execute(request: Request, block: suspend (okhttp3.Response) -> T): T {
@@ -120,12 +148,15 @@ class GptSovitsClient(
             val response = try {
                 call.execute()
             } catch (error: IOException) {
+                diagnostics(ApiDiagnosticEvent.NetworkFailure("character_list", error.javaClass.simpleName))
                 throw ApiException(ApiError.Network(error.message ?: "Network failure"), error)
             }
             response.use {
                 if (!it.isSuccessful) {
+                    diagnostics(ApiDiagnosticEvent.HttpFailure("character_list", it.code))
                     throw ApiException(ApiError.Http(it.code, it.body?.string().orEmpty().take(1_024)))
                 }
+                diagnostics(ApiDiagnosticEvent.ResponseReceived("character_list", it.code, it.header("Content-Type")))
                 block(it)
             }
         } finally {
@@ -140,5 +171,8 @@ class GptSovitsClient(
     private companion object {
         val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
         const val NETWORK_CHUNK_SIZE = 8_192L
+        const val MAX_SYNTHESIS_ATTEMPTS = 3
+        val RETRYABLE_HTTP_CODES = setOf(500, 502, 503, 504)
+        val RETRY_DELAYS_MS = longArrayOf(200L, 500L)
     }
 }

@@ -2,8 +2,11 @@ package dev.breenottshook.hook
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
+import dev.breenottshook.api.AndroidApiDiagnostics
 import dev.breenottshook.api.GptSovitsClient
 import dev.breenottshook.config.ConfigContract
+import dev.breenottshook.config.LogLevel
 import dev.breenottshook.config.HookConfigCache
 import dev.breenottshook.playback.AudioTrackSink
 import dev.breenottshook.session.GptSovitsEngine
@@ -30,7 +33,7 @@ class BreenoTransportRuntime(
     private val coordinator = TtsSessionCoordinator(
         scope = scope,
         configProvider = { configCache.current().value },
-        synthesisEngine = GptSovitsEngine(GptSovitsClient(OkHttpClient())),
+        synthesisEngine = GptSovitsEngine(GptSovitsClient(OkHttpClient(), diagnostics = AndroidApiDiagnostics)),
         sinkProvider = { AudioTrackSink(context.applicationContext) }
     )
 
@@ -41,6 +44,9 @@ class BreenoTransportRuntime(
         configCache.refresh()
         val config = configCache.current().value
         val url = SocketRequestUrl.resolve(socket) ?: return null
+        if (config.logLevel == LogLevel.DEBUG) {
+            Log.d("BreenoTTSHook", "websocket: ${HookDiagnostics.websocket(url, payload)}")
+        }
         val decision = TransportFallbackPolicy.decide(url, payload, config)
         if (decision !is TransportDecision.Intercept) return null
 
@@ -124,6 +130,13 @@ class HookStatusPublisher(
                 null,
                 Bundle().apply { putString(ConfigContract.KEY_HOOK_STATUS, payload) }
             )
+        }.onSuccess {
+            Log.i(
+                "BreenoTTSHook",
+                "status published: $payload persisted=${it?.getBoolean(ConfigContract.KEY_RESULT)}"
+            )
+        }.onFailure {
+            Log.e("BreenoTTSHook", "status publish failed: $payload", it)
         }
     }
 }

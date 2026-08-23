@@ -13,7 +13,7 @@
 - 支持版本仅为 `11.8.3`（110803）和 `12.9.9`（120909）；未来版本默认 `unsupported`。
 - Vector 管理器包名是 `org.matrix.vector.manager`，但模块不得依赖其数据库或私有 API。
 - 目标包始终是 `com.heytap.speechassist`。
-- 默认第三方服务是 `http://47.111.184.220:5000/`。
+- 第三方服务地址由用户配置。
 - 普通日志不得记录完整播报文本、令牌、Cookie 或完整 WebSocket 载荷。
 - Profile、方法或宿主探测结果不唯一时停用对应能力。
 - 原播放器未通过静态与实机验证时必须使用模块 AudioTrack；调试开关可强制 AudioTrack。
@@ -137,9 +137,9 @@
 ### Task 4: 修复试听完成后 UI 不复位
 
 **Files:**
-- Modify: `app/src/main/java/dev/breenottshook/ui/SettingsViewModel.kt`
+- Modify: `app/src/main/java/dev/breenottshook/ui/SettingsOperationController.kt`
 - Modify: `app/src/main/java/dev/breenottshook/ui/SettingsDependencies.kt`
-- Test: `app/src/test/java/dev/breenottshook/ui/SettingsViewModelTest.kt`
+- Test: `app/src/test/java/dev/breenottshook/ui/SettingsOperationControllerBehaviorTest.kt`
 - Create: `app/src/test/java/dev/breenottshook/ui/SessionPreviewControllerTest.kt`
 
 **Interfaces:**
@@ -152,7 +152,7 @@
 
 - [ ] **Step 2: 运行并确认 RED**
 
-运行 `./gradlew.bat :app:testDebugUnitTest --tests "*.SettingsViewModelTest" --tests "*.SessionPreviewControllerTest"`。
+运行 `./gradlew.bat :app:testDebugUnitTest --tests "*.SettingsOperationControllerBehaviorTest" --tests "*.SessionPreviewControllerTest"`。
 
 - [ ] **Step 3: 实现回调桥**
 
@@ -177,7 +177,7 @@
 **Interfaces:**
 - 每个 `VersionProfile.settingsHosts` 返回该版本经验证的宿主描述符。
 - `BreenoSettingsHook` 也使用延迟 Context 安装。
-- `HostSettingsDialog` 的字段键集合必须与模块 APP `SettingsSchema` 完全相等。
+- `HostSettingsContent` 的字段键集合必须与模块 APP `SettingsSchema` 完全相等。
 
 - [ ] **Step 1: 从两个 APK 枚举设置组件**
 
@@ -193,7 +193,7 @@
 
 - [ ] **Step 4: 实现 Profile 驱动注入**
 
-设置 Hook 从所选 Profile 读取描述符，Application Context 就绪后安装。注入按钮只出现一次，打开现有完整 `HostSettingsDialog`；宿主失配只发布 `settings_disabled`。
+设置 Hook 从所选 Profile 读取描述符，Application Context 就绪后安装。原生设置入口只出现一次并打开完整 `HostSettingsPage`；宿主失配只发布 `settings_disabled`。
 
 - [ ] **Step 5: 设备验证并提交**
 
@@ -269,7 +269,7 @@
 
 - [ ] **Step 4: 验证真实播报生命周期**
 
-清空 logcat 后触发固定无隐私问题，确认小布 UID 连接 `47.111.184.220:5000`、第三方音频播放、无重复原播报；依次测试连续提问、播放中打断、不可达地址回退、严格模式和强制模块播放器。
+清空 logcat 后触发固定无隐私问题，确认小布 UID 连接用户配置的服务、第三方音频播放、无重复原播报；依次测试连续提问、播放中打断、不可达地址回退、严格模式和强制模块播放器。
 
 - [ ] **Step 5: 处理外部阻塞**
 

@@ -48,7 +48,7 @@ Each setting row presents its label, description, value/state, and action as one
 
 ## Cleanup
 
-The obsolete `HostSettingsDialog.show()` AlertDialog path is removed after confirming the injected page is its only production caller. Host and Compose screens reuse the shared operations instead of retaining independent refresh/test/preview/save implementations.
+Host and Compose screens use `SettingsOperationController` for refresh, test, preview, save, and operation gating while rendering with their respective widget systems.
 
 ## Error Handling
 

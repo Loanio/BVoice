@@ -2,6 +2,7 @@ package dev.breenottshook.hook
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import dev.breenottshook.session.TtsUtterance
 
 class BreenoHostCallbacksTest {
     @Test
@@ -34,11 +35,11 @@ class BreenoHostCallbacksTest {
     }
 
     @Test
-    fun `stream bridge forwards utterance start index`() {
+    fun `stream bridge sends native slice information`() {
         val events = mutableListOf<String>()
         val callbacks = BreenoHostCallbacks.stream(StreamListener(events))
-        callbacks.onUtteranceStarted(3)
-        assertEquals(listOf("utterance:3"), events)
+        callbacks.onUtteranceStarted(TtsUtterance(index = 3, text = "第三句"))
+        assertEquals(listOf("slice:3:第三句:3"), events)
     }
 
     @Test
@@ -59,8 +60,10 @@ class BreenoHostCallbacksTest {
 
     class StreamListener(private val events: MutableList<String>) {
         fun onSpeakBegin() { events += "begin" }
-        fun onUtteranceStarted(index: Int) { events += "utterance:$index" }
+        fun onNextSliceStart(info: SliceInfo) { events += "slice:${info.paraIndex}:${info.text}:${info.paraLength}" }
         fun onEnd() { events += "end" }
         fun onCompleted(error: Any?) { events += "completed:${error?.javaClass?.simpleName ?: "null"}" }
     }
+
+    class SliceInfo(val paraIndex: Int, val text: String, val paraLength: Long)
 }

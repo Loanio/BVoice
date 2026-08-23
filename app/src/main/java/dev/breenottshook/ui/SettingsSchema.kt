@@ -40,14 +40,14 @@ sealed interface SchemaEditResult {
 object SettingsSchema {
     val fields: List<SettingsField> = listOf(
         boolean("enabled", "启用第三方 TTS", "关闭时不替换小布播报", SettingsSection.BASIC),
-        text("baseUrl", "API 地址", "GPT-SoVITS 服务根地址；HTTP 内容未加密", SettingsSection.BASIC),
+        text("baseUrl", "API 地址", "GPT-SoVITS 服务地址", SettingsSection.BASIC),
         text("character", "角色", "从服务器角色列表选择", SettingsSection.VOICE),
         text("emotion", "情感", "随角色动态加载", SettingsSection.VOICE),
-        boolean("useManualVoice", "使用手动音色", "优先使用下面的手动角色和情感", SettingsSection.VOICE),
-        text("manualCharacter", "手动角色", "目录中没有时直接填写服务器角色名", SettingsSection.VOICE),
-        text("manualEmotion", "手动情感", "目录中没有时直接填写服务器情感名", SettingsSection.VOICE),
+        boolean("useManualVoice", "使用手动音色", "优先使用下面的手动角色和情感", SettingsSection.ADVANCED),
+        text("manualCharacter", "手动角色", "目录中没有时直接填写服务器角色名", SettingsSection.ADVANCED),
+        text("manualEmotion", "手动情感", "目录中没有时直接填写服务器情感名", SettingsSection.ADVANCED),
         choice("textLanguage", "文本语言", "发送给 GPT-SoVITS 的语言模式", SettingsSection.VOICE, enumNames<TextLanguage>()),
-        choice("audioFormat", "音频格式", "接入播放器时建议使用 WAV", SettingsSection.VOICE, enumNames<SynthesisAudioFormat>()),
+        choice("audioFormat", "音频格式", "接入播放器时建议使用 WAV", SettingsSection.ADVANCED, enumNames<SynthesisAudioFormat>()),
         integer("topK", "top_k", "采样候选数量", SettingsSection.ADVANCED, minimum = 1.0),
         decimal("topP", "top_p", "核采样概率", SettingsSection.ADVANCED, minimum = 0.0, maximum = 1.0),
         decimal("temperature", "temperature", "生成随机度", SettingsSection.ADVANCED, minimum = 0.0),
@@ -80,7 +80,23 @@ object SettingsSchema {
                 "baseUrl" -> success(config.copy(baseUrl = rawValue))
                 "character" -> success(config.copy(character = rawValue))
                 "emotion" -> success(config.copy(emotion = rawValue))
-                "useManualVoice" -> booleanValue()?.let { success(config.copy(useManualVoice = it)) }
+                "useManualVoice" -> booleanValue()?.let { enabled ->
+                    success(
+                        config.copy(
+                            useManualVoice = enabled,
+                            manualCharacter = if (enabled && config.manualCharacter.isBlank()) {
+                                config.character
+                            } else {
+                                config.manualCharacter
+                            },
+                            manualEmotion = if (enabled && config.manualEmotion.isBlank()) {
+                                config.emotion
+                            } else {
+                                config.manualEmotion
+                            }
+                        )
+                    )
+                }
                     ?: invalid("请输入 true 或 false")
                 "manualCharacter" -> success(config.copy(manualCharacter = rawValue))
                 "manualEmotion" -> success(config.copy(manualEmotion = rawValue))

@@ -6,4 +6,6 @@ local.properties
 captures/
 work/
 outputs/*.apk
+outputs/
+*.log
 .worktrees/

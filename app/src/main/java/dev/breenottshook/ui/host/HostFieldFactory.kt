@@ -4,7 +4,6 @@ import android.content.Context
 import android.text.InputType
 import android.view.View
 import android.widget.ArrayAdapter
-import android.widget.AutoCompleteTextView
 import android.widget.EditText
 import android.widget.Spinner
 import android.widget.Switch
@@ -36,14 +35,18 @@ object HostFieldFactory {
         field: SettingsField
     ): HostFieldBinding {
         val currentValue = read(config, field.key)
-        if (field.key == "character" || field.key == "emotion") {
-            val editor = AutoCompleteTextView(context).apply {
-                hint = field.label
+        if (field.key in setOf("character", "emotion")) {
+            val editor = Spinner(context).apply {
                 contentDescription = field.description
-                setText(currentValue, false)
-                threshold = 0
+                adapter = ArrayAdapter(
+                    context,
+                    android.R.layout.simple_spinner_dropdown_item,
+                    emptyList<String>()
+                )
             }
-            return HostFieldBinding(field, editor) { editor.text.toString() }
+            return HostFieldBinding(field, editor) {
+                editor.selectedItem?.toString().orEmpty()
+            }
         }
         return when (field.type) {
             SettingsFieldType.BOOLEAN -> {
