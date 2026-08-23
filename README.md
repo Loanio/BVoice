@@ -29,11 +29,18 @@ An Android LSPosed module that connects Breeno Assistant to a self-hosted GPT-So
 
 BreenoTTSHook provides both a standalone module app and an in-app Breeno settings entry. They share the same local configuration for voice selection, connection checks, previews, and speech synthesis. The module does not modify the Breeno APK and does not include a default service address or credentials.
 
+## Screenshots
+
+| Breeno settings | Voice settings |
+| --- | --- |
+| ![Breeno settings](images/小布设置页面.jpg) | ![Voice settings](images/音色设置页面.jpg) |
+
 > [!IMPORTANT]
 > **Beta software.** Features, compatibility, and stability are still being validated and may change. The module currently supports only the Breeno Assistant versions listed in [Compatibility](#compatibility).
 
 ## Contents
 
+- [Screenshots](#screenshots)
 - [Features](#features)
 - [Architecture](#architecture)
 - [Compatibility](#compatibility)
