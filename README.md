@@ -5,12 +5,12 @@
 </div>
 
 ```
-██████╗ ██████╗ ███████╗███████╗███╗   ██╗ ██████╗
-██╔══██╗██╔══██╗██╔════╝██╔════╝████╗  ██║██╔═══██╗
-██████╔╝██████╔╝█████╗  █████╗  ██╔██╗ ██║██║   ██║
-██╔══██╗██╔══██╗██╔══╝  ██╔══╝  ██║╚██╗██║██║   ██║
-██████╔╝██║  ██║███████╗███████╗██║ ╚████║╚██████╔╝
-╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═══╝ ╚═════╝
+██████╗  ██╗   ██╗ ██████╗ ██╗  ██████╗ ███████╗
+██╔══██╗ ██║   ██║██╔═══██╗██║ ██╔════╝ ██╔════╝
+██████╔╝ ╚██╗ ██╔╝██║   ██║██║ ██║      █████╗
+██╔══██╗  ╚████╔╝ ██║   ██║██║ ██║      ██╔══╝
+██████╔╝   ╚██╔╝  ╚██████╔╝██║ ╚██████╗ ███████╗
+╚═════╝     ╚═╝    ╚═════╝ ╚═╝  ╚═════╝ ╚══════╝
 ```
 
 <p align="center">
@@ -35,12 +35,17 @@ BreenoTTSHook provides both a standalone module app and an in-app Breeno setting
 | --- | --- |
 | ![Breeno settings](images/breeno-settings-en.jpg) | ![Third-party voice](images/third-party-voice-en.jpg) |
 
+## Backend
+
+This module can use [Uni-TTS](https://github.com/X-T-E-R/Uni-TTS) as its TTS backend. See the [Uni-TTS API documentation](https://www.yuque.com/xter/zibxlp/kkicvpiogcou5lgp) for the available API details.
+
 > [!IMPORTANT]
 > **Beta software.** Features, compatibility, and stability are still being validated and may change. The module currently supports only the Breeno Assistant versions listed in [Compatibility](#compatibility).
 
 ## Contents
 
 - [Screenshots](#screenshots)
+- [Backend](#backend)
 - [Features](#features)
 - [Architecture](#architecture)
 - [Compatibility](#compatibility)
