@@ -62,7 +62,7 @@ This module can use [Uni-TTS](https://github.com/X-T-E-R/Uni-TTS) as its TTS bac
 - Loads character and emotion catalogs; supports manual voice settings, connection checks, and voice previews.
 - Supports streaming responses and WAV, PCM, MP3, and OGG audio formats.
 - Plays generated audio through `AudioTrack`, with cancellation and session management.
-- Can fall back to Breeno's original TTS while third-party audio has not started, when enabled in the configuration.
+- Falls back to Breeno's original TTS until third-party audio starts, when enabled in the configuration.
 - Shares versioned configuration between the module app and Breeno's embedded settings page.
 - Includes Chinese and English settings UI, copyable diagnostic logs, and privacy-aware utterance identifiers.
 
@@ -100,7 +100,7 @@ Configuration is read and written through the module's `ContentProvider` and sto
 ## Download
 
 - [BVoice Debug APK](releases/BreenoTTSHook-0.1.0-debug.apk) — signed with the Android debug key.
-- [BVoice Release APK](releases/BreenoTTSHook-0.1.0-release-unsigned.apk) — built with the release variant and not signed; sign it with your own release key before installing.
+- [BVoice Release APK](releases/BreenoTTSHook-0.1.0-release-unsigned.apk) — built with the release variant; sign it with your own release key before installing.
 
 ## Installation and configuration
 
@@ -111,8 +111,6 @@ Configuration is read and written through the module's `ContentProvider` and sto
 5. Enter the GPT-SoVITS service address, load the character and emotion catalog, and run a preview.
 6. Enable **Use third-party TTS**.
 
-You provide the service address. When it is empty, the module does not make service requests.
-
 ## Settings
 
 | Category | Available settings |
@@ -122,8 +120,6 @@ You provide the service address. When it is empty, the module does not make serv
 | Synthesis | Audio format, streaming response, speech rate, and generation parameters |
 | Network | Connection and read timeouts |
 | Diagnostics | Strict mode, module player, log level, and preview text |
-
-The default log level is `ERROR`. Diagnostic records do not contain the complete utterance text, cookies, tokens, or complete request bodies.
 
 ## Build from source
 
@@ -166,5 +162,3 @@ Key entry points: [hook implementation](app/src/main/java/dev/breenottshook/hook
 ## Diagnostics and feedback
 
 Copy the diagnostic log from the bottom of the settings page. When reporting an issue, include the device model, Android/ColorOS version, Breeno version, LSPosed version, reproduction steps, and a redacted diagnostic log.
-
-Do not include real utterance text, service addresses, API keys, cookies, or tokens.

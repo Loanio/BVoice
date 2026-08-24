@@ -62,7 +62,7 @@ BVoice 提供独立模块 App 与小布内嵌设置入口。两者共享同一�
 - 支持角色与情感目录加载、手动音色、连接检查和试听。
 - 支持流式响应，以及 WAV、PCM、MP3 和 OGG 音频格式。
 - 使用 `AudioTrack` 播放模块生成的音频，并支持播报取消与会话管理。
-- 在第三方音频尚未开始播放时，可按配置回退到小布原始 TTS。
+- 开启配置后，在第三方音频开始播放前回退到小布原始 TTS。
 - 模块 App 与小布内嵌设置页共享带版本号的配置。
 - 提供中英文设置界面、可复制的诊断日志和隐私友好的播报标识。
 
@@ -100,7 +100,7 @@ LSPosed / YukiHookAPI
 ## 下载
 
 - [BVoice Debug APK](releases/BreenoTTSHook-0.1.0-debug.apk) —— 使用 Android debug 密钥签名。
-- [BVoice Release APK](releases/BreenoTTSHook-0.1.0-release-unsigned.apk) —— 使用 release 构建变体生成但未签名，安装前请使用自己的 release 密钥签名。
+- [BVoice Release APK](releases/BreenoTTSHook-0.1.0-release-unsigned.apk) —— 使用 release 构建变体生成，安装前请使用自己的 release 密钥完成签名。
 
 ## 安装与配置
 
@@ -111,8 +111,6 @@ LSPosed / YukiHookAPI
 5. 填写 GPT-SoVITS 服务地址，加载角色与情感目录，然后进行试听。
 6. 开启“启用第三方 TTS”。
 
-服务地址由用户自行提供。地址为空时，模块不会发起服务请求。
-
 ## 配置项
 
 | 分类 | 可用配置 |
@@ -122,8 +120,6 @@ LSPosed / YukiHookAPI
 | 合成 | 音频格式、流式响应、语速和生成参数 |
 | 网络 | 连接超时和读取超时 |
 | 诊断 | 严格模式、模块播放器、日志级别和试听文本 |
-
-默认日志级别为 `ERROR`。诊断记录不会包含完整播报文本、Cookie、Token 或完整请求体。
 
 ## 从源码构建
 
@@ -166,5 +162,3 @@ app/src/main/java/dev/breenottshook/
 ## 诊断与反馈
 
 可以在设置页底部复制诊断日志。提交问题时请提供设备型号、Android/ColorOS 版本、小布版本、LSPosed 版本、复现步骤和脱敏后的诊断记录。
-
-不要提交真实播报文本、服务地址、API Key、Cookie 或 Token。
