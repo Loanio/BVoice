@@ -23,11 +23,11 @@
   Android · LSPosed · YukiHookAPI · GPT-SoVITS · Breeno Assistant
 </p>
 
-# BreenoTTSHook
+# BVoice
 
 An Android LSPosed module that connects Breeno Assistant to a self-hosted GPT-SoVITS service.
 
-BreenoTTSHook provides both a standalone module app and an in-app Breeno settings entry. They share the same local configuration for voice selection, connection checks, previews, and speech synthesis. The module does not modify the Breeno APK and does not include a default service address or credentials.
+BVoice provides both a standalone module app and an in-app Breeno settings entry. They share the same local configuration for voice selection, connection checks, previews, and speech synthesis.
 
 ## Screenshots
 
@@ -74,7 +74,6 @@ Breeno Assistant
     v
 LSPosed / YukiHookAPI
     |
-    +-- 11.8.3 WebSocket TTS route
     +-- 12.9.9 Engine / streaming TTS route
             |
             v
@@ -95,29 +94,24 @@ Configuration is read and written through the module's `ContentProvider` and sto
 | --- | --- |
 | Android | minSdk 31, targetSdk 35 |
 | Root environment | Magisk or KernelSU with LSPosed |
-| Breeno Assistant 11.8.3 | WebSocket TTS route |
 | Breeno Assistant 12.9.9 | Engine and streaming TTS routes |
 | GPT-SoVITS service | `GET /character_list` and `POST /tts` |
 
-Other Breeno versions are not matched heuristically. See the [compatibility notes](docs/COMPATIBILITY.md) for the supported-version boundaries.
-
 ## Download
 
-- [Debug APK](releases/BreenoTTSHook-0.1.0-debug.apk) — signed with the Android debug key.
-- [Release APK](releases/BreenoTTSHook-0.1.0-release-unsigned.apk) — built with the release variant and not signed; sign it with your own release key before installing.
+- [BVoice Debug APK](releases/BreenoTTSHook-0.1.0-debug.apk) — signed with the Android debug key.
+- [BVoice Release APK](releases/BreenoTTSHook-0.1.0-release-unsigned.apk) — built with the release variant and not signed; sign it with your own release key before installing.
 
 ## Installation and configuration
 
 1. Install the module APK.
 2. Enable the module in LSPosed and set its scope to `com.heytap.speechassist`.
 3. Restart Breeno Assistant.
-4. Open the BreenoTTSHook app, or open **Third-party voice** in Breeno settings.
+4. Open the BVoice app, or open **Third-party voice** in Breeno settings.
 5. Enter the GPT-SoVITS service address, load the character and emotion catalog, and run a preview.
 6. Enable **Use third-party TTS**.
 
 You provide the service address. When it is empty, the module does not make service requests.
-
-For the full procedure, see [installation and usage](docs/INSTALL.md).
 
 ## Settings
 
@@ -174,5 +168,3 @@ Key entry points: [hook implementation](app/src/main/java/dev/breenottshook/hook
 Copy the diagnostic log from the bottom of the settings page. When reporting an issue, include the device model, Android/ColorOS version, Breeno version, LSPosed version, reproduction steps, and a redacted diagnostic log.
 
 Do not include real utterance text, service addresses, API keys, cookies, or tokens.
-
-See [diagnostics](docs/DIAGNOSTICS.md) for diagnostic details.
