@@ -1,6 +1,6 @@
 <div align="right">
 
-[English](README.md) | [中文](README.zh-CN.md)
+[English](README.en.md) | **中文**
 
 </div>
 
@@ -20,61 +20,61 @@
 </p>
 
 <p align="center">
-  Android · LSPosed · YukiHookAPI · GPT-SoVITS · Breeno Assistant
+  Android · LSPosed · YukiHookAPI · GPT-SoVITS · 小布助手
 </p>
 
-# BVoice
+# 小布音色替换
 
-An Android LSPosed module that connects Breeno Assistant to a self-hosted GPT-SoVITS service.
+面向 Android 的 LSPosed 模块，为小布助手接入用户自建的 GPT-SoVITS 服务，从而实现自定义小布音色。
 
-BVoice provides both a standalone module app and an in-app Breeno settings entry. They share the same local configuration for voice selection, connection checks, previews, and speech synthesis.
+BVoice 提供独立模块 App 与小布内嵌设置入口。两者共享同一份本地配置，可用于角色选择、连接检查、试听和语音合成。
 
-## Screenshots
+## 界面预览
 
-| Breeno settings | Third-party voice |
+| 小布设置页面 | 音色设置页面 |
 | --- | --- |
-| ![Breeno settings](images/breeno-settings-en.jpg) | ![Third-party voice](images/third-party-voice-en.jpg) |
+| ![小布设置页面](images/小布设置页面.jpg) | ![音色设置页面](images/音色设置页面.jpg) |
 
-## Backend
+## 后端服务
 
-This module can use [Uni-TTS](https://github.com/X-T-E-R/Uni-TTS) as its TTS backend. See the [Uni-TTS API documentation](https://www.yuque.com/xter/zibxlp/kkicvpiogcou5lgp) for the available API details.
+本模块可以使用 [Uni-TTS](https://github.com/X-T-E-R/Uni-TTS) 作为 TTS 后端服务。接口详情请参阅 [Uni-TTS API 文档](https://www.yuque.com/xter/zibxlp/kkicvpiogcou5lgp)。
 
 > [!IMPORTANT]
-> **Beta software.** Features, compatibility, and stability are still being validated and may change. The module currently supports only the Breeno Assistant versions listed in [Compatibility](#compatibility).
+> **Beta 软件。** 功能、兼容性和稳定性仍在持续验证中，后续可能发生变化。目前仅支持[兼容性](#兼容性)中列出的小布助手版本。
 
-## Contents
+## 目录
 
-- [Screenshots](#screenshots)
-- [Backend](#backend)
-- [Features](#features)
-- [Architecture](#architecture)
-- [Compatibility](#compatibility)
-- [Download](#download)
-- [Installation and configuration](#installation-and-configuration)
-- [Settings](#settings)
-- [Build from source](#build-from-source)
-- [Project layout](#project-layout)
-- [Diagnostics and feedback](#diagnostics-and-feedback)
+- [界面预览](#界面预览)
+- [后端服务](#后端服务)
+- [主要功能](#主要功能)
+- [工作架构](#工作架构)
+- [兼容性](#兼容性)
+- [下载](#下载)
+- [安装与配置](#安装与配置)
+- [配置项](#配置项)
+- [从源码构建](#从源码构建)
+- [项目结构](#项目结构)
+- [诊断与反馈](#诊断与反馈)
 
-## Features
+## 主要功能
 
-- Adds GPT-SoVITS speech synthesis to Breeno Assistant's TTS pipeline.
-- Loads character and emotion catalogs; supports manual voice settings, connection checks, and voice previews.
-- Supports streaming responses and WAV, PCM, MP3, and OGG audio formats.
-- Plays generated audio through `AudioTrack`, with cancellation and session management.
-- Falls back to Breeno's original TTS until third-party audio starts, when enabled in the configuration.
-- Shares versioned configuration between the module app and Breeno's embedded settings page.
-- Includes Chinese and English settings UI, copyable diagnostic logs, and privacy-aware utterance identifiers.
+- 为小布助手的 TTS 链路提供 GPT-SoVITS 语音合成接入。
+- 支持角色与情感目录加载、手动音色、连接检查和试听。
+- 支持流式响应，以及 WAV、PCM、MP3 和 OGG 音频格式。
+- 使用 `AudioTrack` 播放模块生成的音频，并支持播报取消与会话管理。
+- 开启配置后，在第三方音频开始播放前回退到小布原始 TTS。
+- 模块 App 与小布内嵌设置页共享带版本号的配置。
+- 提供中英文设置界面、可复制的诊断日志和隐私友好的播报标识。
 
-## Architecture
+## 工作架构
 
 ```text
-Breeno Assistant
+小布助手
     |
     v
 LSPosed / YukiHookAPI
     |
-    +-- 12.9.9 Engine / streaming TTS route
+    +-- 12.9.9 Engine / 流式 TTS 路由
             |
             v
       GptSovitsClient
@@ -83,82 +83,82 @@ LSPosed / YukiHookAPI
             +-- POST /tts
                     |
                     v
-              AudioTrack playback
+              AudioTrack 播放
 ```
 
-Configuration is read and written through the module's `ContentProvider` and stored in its own `SharedPreferences`. The Breeno process only reads this shared configuration.
+配置通过模块的 `ContentProvider` 读写，并存储在模块自己的 `SharedPreferences` 中。小布进程只读取这份共享配置。
 
-## Compatibility
+## 兼容性
 
-| Component | Supported configuration |
+| 组件 | 支持情况 |
 | --- | --- |
-| Android | minSdk 31, targetSdk 35 |
-| Root environment | Magisk or KernelSU with LSPosed |
-| Breeno Assistant 12.9.9 | Engine and streaming TTS routes |
-| GPT-SoVITS service | `GET /character_list` and `POST /tts` |
+| Android | minSdk 31，targetSdk 35 |
+| Root 环境 | Magisk 或 KernelSU，配合 LSPosed |
+| 小布助手 12.9.9 | Engine 与流式 TTS 路由 |
+| GPT-SoVITS 服务 | `GET /character_list` 与 `POST /tts` |
 
-## Download
+## 下载
 
-- [BVoice Debug APK](releases/BreenoTTSHook-0.1.0-debug.apk) — signed with the Android debug key.
-- [BVoice Release APK](releases/BreenoTTSHook-0.1.0-release-unsigned.apk) — built with the release variant; sign it with your own release key before installing.
+- [BVoice Debug APK](releases/BreenoTTSHook-0.1.0-debug.apk) —— 使用 Android debug 密钥签名。
+- [BVoice Release APK](releases/BreenoTTSHook-0.1.0-release-unsigned.apk) —— 使用 release 构建变体生成，安装前请使用自己的 release 密钥完成签名。
 
-## Installation and configuration
+## 安装与配置
 
-1. Install the module APK.
-2. Enable the module in LSPosed and set its scope to `com.heytap.speechassist`.
-3. Restart Breeno Assistant.
-4. Open the BVoice app, or open **Third-party voice** in Breeno settings.
-5. Enter the GPT-SoVITS service address, load the character and emotion catalog, and run a preview.
-6. Enable **Use third-party TTS**.
+1. 安装模块 APK。
+2. 在 LSPosed 中启用模块，并将作用域设置为 `com.heytap.speechassist`。
+3. 重启小布助手。
+4. 打开 BVoice App，或在小布设置中打开“第三方音色”。
+5. 填写 GPT-SoVITS 服务地址，加载角色与情感目录，然后进行试听。
+6. 开启“启用第三方 TTS”。
 
-## Settings
+## 配置项
 
-| Category | Available settings |
+| 分类 | 可用配置 |
 | --- | --- |
-| Basic | Enable state, service address, failure fallback |
-| Voice | Character, emotion, text language, manual voice |
-| Synthesis | Audio format, streaming response, speech rate, and generation parameters |
-| Network | Connection and read timeouts |
-| Diagnostics | Strict mode, module player, log level, and preview text |
+| 基础 | 启用状态、服务地址、失败回退 |
+| 音色 | 角色、情感、文本语言、手动音色 |
+| 合成 | 音频格式、流式响应、语速和生成参数 |
+| 网络 | 连接超时和读取超时 |
+| 诊断 | 严格模式、模块播放器、日志级别和试听文本 |
 
-## Build from source
+## 从源码构建
 
-Requirements: JDK 17 and Android SDK 35.
+环境要求：JDK 17 和 Android SDK 35。
 
 ```powershell
 $env:JAVA_HOME = 'C:\Program Files\Java\jdk-17'
 .\gradlew.bat :app:testDebugUnitTest :app:assembleDebug
 ```
 
-The debug APK is written to [`app/build/outputs/apk/debug/app-debug.apk`](app/build/outputs/apk/debug/app-debug.apk).
+Debug APK 输出到 [`app/build/outputs/apk/debug/app-debug.apk`](app/build/outputs/apk/debug/app-debug.apk)。
 
-To build the release variant:
+构建 release 版本：
 
 ```powershell
 .\gradlew.bat :app:assembleRelease
 ```
 
-The release APK must be signed with your own release key before it can be installed. Run the project verification script with:
+Release APK 必须使用自己的 release 密钥签名后才能安装。可以使用以下命令运行项目验证脚本：
 
 ```powershell
 .\scripts\verify.ps1
 ```
 
-## Project layout
+## 项目结构
 
 ```text
 app/src/main/java/dev/breenottshook/
-├── api/       GPT-SoVITS client, character catalog, and diagnostics
-├── audio/     Audio decoding and format models
-├── config/    Shared configuration, validation, encoding, and persistence
-├── hook/      LSPosed injection, version routing, and host adapters
-├── playback/  AudioTrack playback and streaming writes
-├── session/   TTS sessions and cancellation control
-└── ui/        Module app and embedded settings UI
+├── api/       GPT-SoVITS 客户端、角色目录和诊断
+├── audio/     音频解码和格式模型
+├── config/    共享配置、校验、编码和持久化
+├── hook/      LSPosed 注入、版本路由和宿主适配
+├── playback/  AudioTrack 播放和流式写入
+├── session/   TTS 会话和取消控制
+└── ui/        模块 App 与内嵌设置界面
 ```
 
-Key entry points: [hook implementation](app/src/main/java/dev/breenottshook/hook), [configuration](app/src/main/java/dev/breenottshook/config), [settings UI](app/src/main/java/dev/breenottshook/ui), and the [Android manifest](app/src/main/AndroidManifest.xml).
+主要入口：[Hook 实现](app/src/main/java/dev/breenottshook/hook)、[配置](app/src/main/java/dev/breenottshook/config)、[设置界面](app/src/main/java/dev/breenottshook/ui) 和 [Android Manifest](app/src/main/AndroidManifest.xml)。
 
-## Diagnostics and feedback
+## 诊断与反馈
 
-Copy the diagnostic log from the bottom of the settings page. When reporting an issue, include the device model, Android/ColorOS version, Breeno version, LSPosed version, reproduction steps, and a redacted diagnostic log.
+可以在设置页底部复制诊断日志。提交问题时请提供设备型号、Android/ColorOS 版本、小布版本、LSPosed 版本、复现步骤和脱敏后的诊断记录。
