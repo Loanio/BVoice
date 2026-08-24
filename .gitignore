@@ -8,4 +8,7 @@ work/
 outputs/*.apk
 outputs/
 *.log
+*.jks
+*.keystore
+*release-key-backup.txt
 .worktrees/

@@ -14,9 +14,9 @@
 ```
 
 <p align="center">
-  <a href="https://github.com/Loanio/BreenoTTSHook"><img src="https://img.shields.io/github/stars/Loanio/BreenoTTSHook?label=stars" alt="stars"/></a>
-  <a href="https://github.com/Loanio/BreenoTTSHook/releases/latest"><img src="https://img.shields.io/github/v/release/Loanio/BreenoTTSHook?include_prereleases&label=release" alt="release"/></a>
-  <a href="https://github.com/Loanio/BreenoTTSHook/releases/latest"><img src="https://img.shields.io/github/downloads/Loanio/BreenoTTSHook/total?label=downloads" alt="downloads"/></a>
+  <a href="https://github.com/Loanio/BVoice"><img src="https://img.shields.io/github/stars/Loanio/BVoice?label=stars" alt="stars"/></a>
+  <a href="https://github.com/Loanio/BVoice/releases/latest"><img src="https://img.shields.io/github/v/release/Loanio/BVoice?include_prereleases&label=release" alt="release"/></a>
+  <a href="https://github.com/Loanio/BVoice/releases/latest"><img src="https://img.shields.io/github/downloads/Loanio/BVoice/total?label=downloads" alt="downloads"/></a>
 </p>
 
 <p align="center">
@@ -99,8 +99,8 @@ Configuration is read and written through the module's `ContentProvider` and sto
 
 ## Download
 
-- [BVoice Debug APK](releases/BreenoTTSHook-0.1.0-debug.apk) — signed with the Android debug key.
-- [BVoice Release APK](releases/BreenoTTSHook-0.1.0-release-unsigned.apk) — built with the release variant; sign it with your own release key before installing.
+- [BVoice Debug APK](https://github.com/Loanio/BVoice/releases/download/v0.1.0/BVoice-0.1.0-debug.apk) — signed with the Android debug key.
+- [BVoice Release APK](https://github.com/Loanio/BVoice/releases/download/v0.1.0/BVoice-0.1.0-release-signed.apk) — signed with the official release key.
 
 ## Installation and configuration
 

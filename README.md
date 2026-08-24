@@ -14,9 +14,9 @@
 ```
 
 <p align="center">
-  <a href="https://github.com/Loanio/BreenoTTSHook"><img src="https://img.shields.io/github/stars/Loanio/BreenoTTSHook?label=stars" alt="stars"/></a>
-  <a href="https://github.com/Loanio/BreenoTTSHook/releases/latest"><img src="https://img.shields.io/github/v/release/Loanio/BreenoTTSHook?include_prereleases&label=release" alt="release"/></a>
-  <a href="https://github.com/Loanio/BreenoTTSHook/releases/latest"><img src="https://img.shields.io/github/downloads/Loanio/BreenoTTSHook/total?label=downloads" alt="downloads"/></a>
+  <a href="https://github.com/Loanio/BVoice"><img src="https://img.shields.io/github/stars/Loanio/BVoice?label=stars" alt="stars"/></a>
+  <a href="https://github.com/Loanio/BVoice/releases/latest"><img src="https://img.shields.io/github/v/release/Loanio/BVoice?include_prereleases&label=release" alt="release"/></a>
+  <a href="https://github.com/Loanio/BVoice/releases/latest"><img src="https://img.shields.io/github/downloads/Loanio/BVoice/total?label=downloads" alt="downloads"/></a>
 </p>
 
 <p align="center">
@@ -99,8 +99,8 @@ LSPosed / YukiHookAPI
 
 ## 下载
 
-- [BVoice Debug APK](releases/BreenoTTSHook-0.1.0-debug.apk) —— 使用 Android debug 密钥签名。
-- [BVoice Release APK](releases/BreenoTTSHook-0.1.0-release-unsigned.apk) —— 使用 release 构建变体生成，安装前请使用自己的 release 密钥完成签名。
+- [BVoice Debug APK](https://github.com/Loanio/BVoice/releases/download/v0.1.0/BVoice-0.1.0-debug.apk) —— 使用 Android debug 密钥签名。
+- [BVoice Release APK](https://github.com/Loanio/BVoice/releases/download/v0.1.0/BVoice-0.1.0-release-signed.apk) —— 使用正式 release 密钥签名。
 
 ## 安装与配置
 

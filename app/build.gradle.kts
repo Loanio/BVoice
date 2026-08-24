@@ -6,6 +6,21 @@ plugins {
     alias(libs.plugins.kotlin.ksp)
 }
 
+val releaseStoreFile = providers.gradleProperty("BVOICE_RELEASE_STORE_FILE")
+    .orElse(providers.environmentVariable("BVOICE_RELEASE_STORE_FILE"))
+val releaseStorePassword = providers.gradleProperty("BVOICE_RELEASE_STORE_PASSWORD")
+    .orElse(providers.environmentVariable("BVOICE_RELEASE_STORE_PASSWORD"))
+val releaseKeyAlias = providers.gradleProperty("BVOICE_RELEASE_KEY_ALIAS")
+    .orElse(providers.environmentVariable("BVOICE_RELEASE_KEY_ALIAS"))
+val releaseKeyPassword = providers.gradleProperty("BVOICE_RELEASE_KEY_PASSWORD")
+    .orElse(providers.environmentVariable("BVOICE_RELEASE_KEY_PASSWORD"))
+val releaseSigningConfigured = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { it.isPresent }
+
 android {
     namespace = "dev.breenottshook"
     compileSdk = 35
@@ -20,9 +35,23 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = file(releaseStoreFile.get())
+                storePassword = releaseStorePassword.get()
+                keyAlias = releaseKeyAlias.get()
+                keyPassword = releaseKeyPassword.get()
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
