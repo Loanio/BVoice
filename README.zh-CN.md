@@ -23,7 +23,7 @@
   Android · LSPosed · YukiHookAPI · GPT-SoVITS · 小布助手
 </p>
 
-# BreenoTTSHook
+# 小布音色替换
 
 面向 Android 的 LSPosed 模块，为小布助手接入用户自建的 GPT-SoVITS 服务，从而实现自定义小布音色。
 
