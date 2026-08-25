@@ -1,17 +1,14 @@
+# BVoice
+
+An Android LSPosed module that connects Breeno Assistant to a self-hosted GPT-SoVITS service.
+
+BVoice provides both a standalone module app and an in-app Breeno settings entry. They share the same local configuration for voice selection, connection checks, previews, and speech synthesis.
+
 <div align="right">
 
 [English](README.en.md) | [中文](README.md)
 
 </div>
-
-```
-██████╗  ██╗   ██╗ ██████╗ ██╗  ██████╗ ███████╗
-██╔══██╗ ██║   ██║██╔═══██╗██║ ██╔════╝ ██╔════╝
-██████╔╝ ╚██╗ ██╔╝██║   ██║██║ ██║      █████╗
-██╔══██╗  ╚████╔╝ ██║   ██║██║ ██║      ██╔══╝
-██████╔╝   ╚██╔╝  ╚██████╔╝██║ ╚██████╗ ███████╗
-╚═════╝     ╚═╝    ╚═════╝ ╚═╝  ╚═════╝ ╚══════╝
-```
 
 <p align="center">
   <a href="https://github.com/Loanio/BVoice"><img src="https://img.shields.io/github/stars/Loanio/BVoice?label=stars" alt="stars"/></a>
@@ -22,12 +19,6 @@
 <p align="center">
   Android · LSPosed · YukiHookAPI · GPT-SoVITS · Breeno Assistant
 </p>
-
-# BVoice
-
-An Android LSPosed module that connects Breeno Assistant to a self-hosted GPT-SoVITS service.
-
-BVoice provides both a standalone module app and an in-app Breeno settings entry. They share the same local configuration for voice selection, connection checks, previews, and speech synthesis.
 
 ## Screenshots
 
@@ -46,6 +37,7 @@ This module can use [Uni-TTS](https://github.com/X-T-E-R/Uni-TTS) as its TTS bac
 
 - [Screenshots](#screenshots)
 - [Backend](#backend)
+- [ASCII Logo](#ascii-logo)
 - [Features](#features)
 - [Architecture](#architecture)
 - [Compatibility](#compatibility)
@@ -55,6 +47,17 @@ This module can use [Uni-TTS](https://github.com/X-T-E-R/Uni-TTS) as its TTS bac
 - [Build from source](#build-from-source)
 - [Project layout](#project-layout)
 - [Diagnostics and feedback](#diagnostics-and-feedback)
+
+## ASCII Logo
+
+```
+██████╗  ██╗   ██╗ ██████╗ ██╗  ██████╗ ███████╗
+██╔══██╗ ██║   ██║██╔═══██╗██║ ██╔════╝ ██╔════╝
+██████╔╝ ╚██╗ ██╔╝██║   ██║██║ ██║      █████╗
+██╔══██╗  ╚████╔╝ ██║   ██║██║ ██║      ██╔══╝
+██████╔╝   ╚██╔╝  ╚██████╔╝██║ ╚██████╗ ███████╗
+╚═════╝     ╚═╝    ╚═════╝ ╚═╝  ╚═════╝ ╚══════╝
+```
 
 ## Features
 
