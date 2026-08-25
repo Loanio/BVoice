@@ -100,7 +100,7 @@ Configuration is read and written through the module's `ContentProvider` and sto
 ## Download
 
 - [BVoice Debug APK](https://github.com/Loanio/BVoice/releases/download/v0.1.0/BVoice-0.1.0-debug.apk) — signed with the Android debug key.
-- [BVoice Release APK](https://github.com/Loanio/BVoice/releases/download/v0.1.0/BVoice-0.1.0-release-signed.apk) — signed with the official release key.
+- [BVoice Release APK](https://github.com/Loanio/BVoice/releases/download/1-0.1.0/BVoice-0.1.0-release-signed.apk) — signed with the official release key.
 
 ## Installation and configuration
 

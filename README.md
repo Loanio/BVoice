@@ -100,7 +100,7 @@ LSPosed / YukiHookAPI
 ## 下载
 
 - [BVoice Debug APK](https://github.com/Loanio/BVoice/releases/download/v0.1.0/BVoice-0.1.0-debug.apk) —— 使用 Android debug 密钥签名。
-- [BVoice Release APK](https://github.com/Loanio/BVoice/releases/download/v0.1.0/BVoice-0.1.0-release-signed.apk) —— 使用正式 release 密钥签名。
+- [BVoice Release APK](https://github.com/Loanio/BVoice/releases/download/1-0.1.0/BVoice-0.1.0-release-signed.apk) —— 使用正式 release 密钥签名。
 
 ## 安装与配置
 
