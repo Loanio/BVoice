@@ -28,7 +28,9 @@ BVoice provides both a standalone module app and an in-app Breeno settings entry
 
 ## Backend
 
-This module can use [Uni-TTS](https://github.com/X-T-E-R/Uni-TTS) as its TTS backend. See the [Uni-TTS API documentation](https://www.yuque.com/xter/zibxlp/kkicvpiogcou5lgp) for the available API details.
+This module uses [GPT-SoVITS-Inference](https://github.com/X-T-E-R/GPT-SoVITS-Inference) as its TTS backend. The project is open-sourced by [箱庭XTer](https://github.com/X-T-E-R). See the [project introduction video](https://www.bilibili.com/video/BV1Lm411D7pw/) for an overview.
+
+If you would like support for another commonly used TTS API, please leave a request in an [Issue](https://github.com/Loanio/BVoice/issues).
 
 > [!IMPORTANT]
 > **Beta software.** Features, compatibility, and stability are still being validated and may change. The module currently supports only the Breeno Assistant versions listed in [Compatibility](#compatibility).

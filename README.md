@@ -28,7 +28,9 @@ BVoice 提供独立模块 App 与小布内嵌设置入口。两者共享同一�
 
 ## 后端服务
 
-本模块可以使用 [Uni-TTS](https://github.com/X-T-E-R/Uni-TTS) 作为 TTS 后端服务。接口详情请参阅 [Uni-TTS API 文档](https://www.yuque.com/xter/zibxlp/kkicvpiogcou5lgp)。
+本模块使用 [GPT-SoVITS-Inference](https://github.com/X-T-E-R/GPT-SoVITS-Inference) 作为 TTS 后端服务。该项目由 [箱庭XTer](https://github.com/X-T-E-R) 开源，相关介绍可观看[项目介绍视频](https://www.bilibili.com/video/BV1Lm411D7pw/)。
+
+如果你有常用的 TTS API 希望适配，欢迎提交 [Issue](https://github.com/Loanio/BVoice/issues) 留言。
 
 > [!IMPORTANT]
 > **Beta 软件。** 功能、兼容性和稳定性仍在持续验证中，后续可能发生变化。目前仅支持[兼容性](#兼容性)中列出的小布助手版本。
