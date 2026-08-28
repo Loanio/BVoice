@@ -24,6 +24,8 @@ object HostSettingsPage {
     private const val PAGE_TAG = "dev.breenottshook.settings.page"
     private val pages = WeakHashMap<Activity, PageState>()
 
+    fun isOpen(activity: Activity): Boolean = pages.containsKey(activity)
+
     fun open(activity: Activity) {
         if (pages.containsKey(activity)) return
         val rootId = activity.resources.getIdentifier("root_view", "id", activity.packageName)

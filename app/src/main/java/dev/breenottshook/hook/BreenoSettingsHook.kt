@@ -187,6 +187,7 @@ class BreenoSettingsHook : YukiBaseHooker() {
     }
 
     private fun addSettingsEntry(activity: Activity) {
+        if (!NativeEntryUpdatePolicy.shouldUpdate(HostSettingsPage.isOpen(activity))) return
         installSummaryObserver(activity)
         val screen = findPreferenceScreen(activity) ?: run {
             Log.w(LOG_TAG, "native_entry screen_missing activity=${activity.javaClass.name}")
@@ -222,6 +223,7 @@ class BreenoSettingsHook : YukiBaseHooker() {
     }
 
     private fun styleNativeEntryRow(activity: Activity) {
+        if (!NativeEntryUpdatePolicy.shouldUpdate(HostSettingsPage.isOpen(activity))) return
         val locale = activity.resources.configuration.locales[0]
         val styled = HostPreferenceRowStyler.styleActivity(
             activity,
@@ -243,7 +245,9 @@ class BreenoSettingsHook : YukiBaseHooker() {
         if (summaryObservers.containsKey(activity)) return
         val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
-                activity.window?.decorView?.post { styleNativeEntryRow(activity) }
+                if (NativeEntryUpdatePolicy.shouldUpdate(HostSettingsPage.isOpen(activity))) {
+                    activity.window?.decorView?.post { styleNativeEntryRow(activity) }
+                }
             }
         }
         runCatching {

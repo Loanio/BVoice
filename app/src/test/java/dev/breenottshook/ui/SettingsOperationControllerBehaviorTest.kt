@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -37,7 +38,7 @@ class SettingsOperationControllerBehaviorTest {
     }
 
     @Test
-    fun `editing advanced setting automatically persists and reports shared version`() = runTest(dispatcher) {
+    fun `editing advanced setting automatically persists without a success toast message`() = runTest(dispatcher) {
         val repository = FakeSettingsRepository(ConfigSnapshot(3, TtsConfig(character = "原音色")))
         val viewModel = viewModel(repository = repository)
 
@@ -48,7 +49,21 @@ class SettingsOperationControllerBehaviorTest {
         assertEquals("新音色", viewModel.state.value.draft.character)
         assertEquals("新音色", repository.snapshot.value.character)
         assertFalse(viewModel.state.value.hasUnsavedChanges)
-        assertTrue(viewModel.state.value.message.orEmpty().contains("已自动保存"))
+        assertNull(viewModel.state.value.message)
+    }
+
+    @Test
+    fun `temporarily invalid input remains silent while the user is typing`() = runTest(dispatcher) {
+        val repository = FakeSettingsRepository(ConfigSnapshot(0, TtsConfig()))
+        val viewModel = viewModel(repository = repository)
+
+        viewModel.edit { it.copy(baseUrl = "h") }
+        advanceUntilIdle()
+
+        assertEquals(0, repository.updateCalls)
+        assertTrue(viewModel.state.value.validationIssues.containsKey("baseUrl"))
+        assertNull(viewModel.state.value.message)
+        assertFalse(viewModel.state.value.isBusy)
     }
 
     @Test
@@ -272,7 +287,7 @@ class SettingsOperationControllerBehaviorTest {
     }
 
     @Test
-    fun `stable base url automatically checks service and refreshes catalog without preview`() = runTest(dispatcher) {
+    fun `editing base url does not check service until the field explicitly loses focus`() = runTest(dispatcher) {
         val repository = FakeSettingsRepository(ConfigSnapshot(0, TtsConfig()))
         val events = mutableListOf<String>()
         val connection = RecordingConnectionTester().also { tester ->
@@ -287,9 +302,16 @@ class SettingsOperationControllerBehaviorTest {
         viewModel.edit { it.copy(baseUrl = "https://tts.example.test/") }
         advanceUntilIdle()
 
+        assertEquals(emptyList<String>(), events)
+        assertEquals(SettingsOperation.IDLE, viewModel.state.value.operation)
+        assertFalse(viewModel.state.value.isBusy)
+        assertFalse(viewModel.state.value.isPreviewing)
+
+        viewModel.testConnectionAndRefresh()
+        advanceUntilIdle()
+
         assertEquals(listOf("connection", "catalog"), events)
         assertEquals(ServiceStatus.AVAILABLE, viewModel.state.value.serviceStatus)
-        assertFalse(viewModel.state.value.isPreviewing)
     }
 
     @Test

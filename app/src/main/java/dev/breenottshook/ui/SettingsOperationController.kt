@@ -92,7 +92,6 @@ class SettingsOperationController(
 
     private var previewGeneration = 0L
     private var autoSaveJob: Job? = null
-    private var addressCheckJob: Job? = null
     private val controllerJob = SupervisorJob(operationScope?.coroutineContext?.get(Job))
     private val scope = CoroutineScope(
         (operationScope?.coroutineContext ?: Dispatchers.Main.immediate) + controllerJob
@@ -130,9 +129,6 @@ class SettingsOperationController(
             emotions = current.catalog?.characters?.get(nextDraft.character).orEmpty()
         )
         scheduleAutoSave()
-        if (nextDraft.baseUrl != current.draft.baseUrl) {
-            scheduleAddressCheck()
-        }
     }
 
     fun loadInitialCatalog() {
@@ -147,7 +143,6 @@ class SettingsOperationController(
     }
 
     fun testConnectionAndRefresh() {
-        addressCheckJob?.cancel()
         scope.launch { checkServiceAndRefresh() }
     }
 
@@ -376,14 +371,6 @@ class SettingsOperationController(
         }
     }
 
-    private fun scheduleAddressCheck() {
-        addressCheckJob?.cancel()
-        addressCheckJob = scope.launch {
-            delay(AUTO_SAVE_DEBOUNCE_MILLIS)
-            checkServiceAndRefresh()
-        }
-    }
-
     private suspend fun checkServiceAndRefresh() {
         val current = mutableState.value
         if (current.operation != SettingsOperation.IDLE || current.draft.baseUrl.isBlank()) return
@@ -510,17 +497,16 @@ class SettingsOperationController(
             is ValidationResult.Invalid -> {
                 mutableState.value = current.copy(
                     validationIssues = validation.issues.associate { it.field to it.message },
-                    message = "自动保存待输入修正"
+                    message = null
                 )
             }
             is ValidationResult.Valid -> {
-                mutableState.value = current.copy(isBusy = true, message = "正在自动保存")
                 when (val result = repository.update(current.persistedVersion, validation.value)) {
                     is UpdateResult.Success -> {
                         val latestDraft = mutableState.value.draft
                         applySnapshot(
                             result.snapshot,
-                            "已自动保存，已同步到小布（版本 ${result.snapshot.version}）",
+                            null,
                             draft = latestDraft
                         )
                         if (latestDraft != validation.value) scheduleAutoSave()
@@ -532,7 +518,7 @@ class SettingsOperationController(
                         mutableState.value = current.copy(
                             isBusy = false,
                             validationIssues = result.issues.associate { it.field to it.message },
-                            message = "自动保存待输入修正"
+                            message = null
                         )
                     }
                     UpdateResult.PersistenceFailure -> {
@@ -647,7 +633,7 @@ class SettingsOperationController(
         }
     }
 
-    private fun applySnapshot(snapshot: ConfigSnapshot, message: String, draft: TtsConfig = snapshot.value) {
+    private fun applySnapshot(snapshot: ConfigSnapshot, message: String?, draft: TtsConfig = snapshot.value) {
         val current = mutableState.value
         val emotions = current.catalog?.characters?.get(draft.character).orEmpty()
         mutableState.value = snapshot.toUiState(
