@@ -357,12 +357,14 @@ class BreenoSettingsHook : YukiBaseHooker() {
         val anchorOrder = anchor.javaClass.getMethod("getOrder").invoke(anchor) as Int
         preferenceClass.getMethod("setOrder", Int::class.javaPrimitiveType)
             .invoke(preference, SettingsPreferenceEntry.orderAfter(anchorOrder))
-        val listenerType = Class.forName("androidx.preference.Preference\$OnPreferenceClickListener", false, loader)
+        val listenerSetter = PreferenceReflection.clickListenerSetter(preferenceClass.methods)
+            ?: error("host preference click listener setter missing")
+        val listenerType = listenerSetter.parameterTypes.single()
         val listener = Proxy.newProxyInstance(loader, arrayOf(listenerType)) { _, method, _ ->
             if (method.name == "onPreferenceClick") HostSettingsPage.open(activity)
             true
         }
-        preferenceClass.getMethod("setOnPreferenceClickListener", listenerType).invoke(preference, listener)
+        listenerSetter.invoke(preference, listener)
         preference
     }.onFailure { Log.e(LOG_TAG, "native_entry create_failed=${it.javaClass.simpleName}") }.getOrNull()
 

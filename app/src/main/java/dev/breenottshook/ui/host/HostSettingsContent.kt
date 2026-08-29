@@ -641,11 +641,12 @@ class HostSettingsContent(
     private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
 
     private fun divider() = View(context).apply {
-        setBackgroundColor(resolveNamedColor(
-            "couiColorDivider",
-            if (isNightMode()) 0x33ffffff else 0x22000000
-        ))
-        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).apply {
+        setBackgroundColor(HostToolbarDividerVisuals.color(isNightMode()))
+        if (android.os.Build.VERSION.SDK_INT >= 29) isForceDarkAllowed = false
+        layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            resolveDimension("speech_dp_0_33", 1)
+        ).apply {
             marginStart = dp(16)
             marginEnd = dp(16)
         }

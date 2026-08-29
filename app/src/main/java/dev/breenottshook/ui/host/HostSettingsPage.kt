@@ -9,12 +9,14 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.view.animation.DecelerateInterpolator
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.widget.Toolbar
+import androidx.recyclerview.widget.RecyclerView
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import java.util.WeakHashMap
@@ -46,7 +48,7 @@ object HostSettingsPage {
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         )
-        page.elevation = dp(activity, 24).toFloat()
+        page.elevation = 0f
         page.bringToFront()
         val title = toolbarTitle(activity)
         installBackHandler(activity)
@@ -129,17 +131,34 @@ object HostSettingsPage {
         val background = content.resolvePageBackground()
         val toolbarId = activity.resources.getIdentifier("toolbar", "id", activity.packageName)
         val hostToolbar = activity.findViewById<View>(toolbarId)
+        val pageContent = content.createPageContent { close(activity) }
         val pageToolbar = createNativeToolbar(activity, hostToolbar, hostTitle, content) {
             close(activity)
         }
         val toolbarHeight = max(hostToolbar?.measuredHeight ?: 0, dp(activity, 56))
+        val divider = createToolbarDivider(activity)
+        val dividerHeight = resolveDimension(activity, "speech_dp_0_33", 1)
+        val dividerHost = FrameLayout(activity).apply {
+            addView(divider, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                dividerHeight,
+                Gravity.CENTER_HORIZONTAL
+            ))
+        }
+        val pageAppBar = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            elevation = 0f
+            addView(pageToolbar, LinearLayout.LayoutParams.MATCH_PARENT, toolbarHeight)
+            addView(dividerHost, LinearLayout.LayoutParams.MATCH_PARENT, dividerHeight)
+        }
+        installToolbarDividerBehavior(activity, pageContent, divider)
         val statusBarSpacer = View(activity)
         return LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(background)
             addView(statusBarSpacer, LinearLayout.LayoutParams.MATCH_PARENT, 0)
-            addView(pageToolbar, LinearLayout.LayoutParams.MATCH_PARENT, toolbarHeight)
-            addView(content.createPageContent { close(activity) }, LinearLayout.LayoutParams(
+            addView(pageAppBar, LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            addView(pageContent, LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
                 1f
@@ -190,7 +209,7 @@ object HostSettingsPage {
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(content.resolvePageBackground())
             minimumHeight = dp(activity, 56)
-            elevation = dp(activity, 8).toFloat()
+            elevation = 0f
             val backIcon = host?.navigationIcon ?: findNavigationDrawable(hostToolbar, activity)
             if (backIcon != null) {
                 addView(ImageButton(activity).apply {
@@ -227,6 +246,46 @@ object HostSettingsPage {
         }
     }
 
+    private fun createToolbarDivider(activity: Activity): View = View(activity).apply {
+        setBackgroundColor(HostToolbarDividerVisuals.color(isNightMode(activity)))
+        alpha = 0f
+        if (android.os.Build.VERSION.SDK_INT >= 29) isForceDarkAllowed = false
+    }
+
+    private fun installToolbarDividerBehavior(
+        activity: Activity,
+        content: View,
+        divider: View
+    ) {
+        fun update() {
+            val fullWidth = (divider.parent as? View)?.width ?: 0
+            if (fullWidth <= 0) return
+            val scrollOffset = if (content is RecyclerView) {
+                content.computeVerticalScrollOffset()
+            } else {
+                content.scrollY
+            }
+            val state = HostToolbarDividerVisuals.state(
+                scrollOffsetPx = scrollOffset,
+                fullWidthPx = fullWidth,
+                density = activity.resources.displayMetrics.density
+            )
+            divider.alpha = state.alpha
+            if (divider.layoutParams.width != state.widthPx) {
+                divider.layoutParams = divider.layoutParams.apply { width = state.widthPx }
+            }
+        }
+
+        if (content is RecyclerView) {
+            content.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) = update()
+            })
+        } else {
+            content.setOnScrollChangeListener { _, _, _, _, _ -> update() }
+        }
+        divider.post(::update)
+    }
+
     private fun findNavigationDrawable(toolbar: View?, activity: Activity): android.graphics.drawable.Drawable? {
         val backId = activity.resources.getIdentifier("coui_toolbar_back_view", "id", activity.packageName)
         val candidate = activity.findViewById<View>(backId)
@@ -247,6 +306,16 @@ object HostSettingsPage {
 
     private fun dp(context: android.content.Context, value: Int): Int =
         (value * context.resources.displayMetrics.density).toInt()
+
+    private fun resolveDimension(activity: Activity, name: String, fallback: Int): Int {
+        val id = activity.resources.getIdentifier(name, "dimen", activity.packageName)
+        return if (id != 0) activity.resources.getDimensionPixelSize(id) else fallback
+    }
+
+    private fun isNightMode(activity: Activity): Boolean =
+        activity.resources.configuration.uiMode and
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
 
     private fun findTextView(view: View?): TextView? = when (view) {
         is TextView -> view
