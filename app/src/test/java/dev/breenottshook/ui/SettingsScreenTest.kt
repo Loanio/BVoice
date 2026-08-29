@@ -5,6 +5,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import dev.breenottshook.config.TtsConfig
 import org.junit.Rule
 import org.junit.Test
@@ -75,6 +77,33 @@ class SettingsScreenTest {
 
         composeRule.onNodeWithText("花火").assertIsNotEnabled()
         composeRule.onNodeWithText("开心").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `advanced settings exposes concurrent synthesis and playback interval inputs`() {
+        composeRule.setContent {
+            SettingsScreen(
+                state = SettingsUiState(
+                    persistedVersion = 7,
+                    persisted = TtsConfig(),
+                    draft = TtsConfig(maxConcurrentSynthesis = 12, playbackIntervalMs = 450)
+                ),
+                onEdit = {},
+                onUpdateCoreSetting = {},
+                onTestConnection = {},
+                onPreview = {},
+                onAddressBlur = {},
+                onStopPreview = {},
+                onResetDefaults = {}
+            )
+        }
+
+        composeRule.onNodeWithText("高级设置").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("并发请求数量").performScrollTo().assertExists()
+        composeRule.onNodeWithText("播放间隔（毫秒）").assertExists()
+        composeRule.onNodeWithText("12").assertExists()
+        composeRule.onNodeWithText("450").assertExists()
     }
 
 }

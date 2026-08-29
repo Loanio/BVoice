@@ -335,6 +335,8 @@ private fun fieldValue(config: TtsConfig, key: String): String = when (key) {
     "speed" -> config.speed.toString()
     "saveTemp" -> config.saveTemp.toString()
     "stream" -> config.stream.toString()
+    "maxConcurrentSynthesis" -> config.maxConcurrentSynthesis.toString()
+    "playbackIntervalMs" -> config.playbackIntervalMs.toString()
     "connectTimeoutMs" -> config.connectTimeoutMs.toString()
     "readTimeoutMs" -> config.readTimeoutMs.toString()
     "fallbackToOriginal" -> config.fallbackToOriginal.toString()

@@ -166,7 +166,6 @@ class HostSettingsContent(
         }
         content.addView(actionCard(HostStrings.defaultLabel(locale), HostStrings.defaultSummary(locale)) {
                 applyValuesToEditors(TtsConfig())
-                toast(HostStrings.defaultSummary(locale))
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(72)).apply {
             bottomMargin = dp(8)
         })
@@ -249,9 +248,7 @@ class HostSettingsContent(
                 controller.stopPreview()
             } else {
                 val draft = currentDraft()?.let(::normalizeVoiceForPreview)
-                if (draft == null) {
-                    toast(localized("请先修正输入格式", "Please correct the input first"))
-                } else {
+                if (draft != null) {
                     // Pass the live Spinner values directly. Auto-save may still
                     // be persisting the previous role when the user taps quickly.
                     controller.edit { draft }
@@ -339,21 +336,17 @@ class HostSettingsContent(
     }
 
     private fun currentDraft(): TtsConfig? {
-        var config = uiState.draft
-        bindings.forEach { binding ->
-            val rawValue = binding.readRawValue()
-            // The role/emotion Spinners are intentionally empty until the
-            // service catalog arrives. Do not let that transient UI state
-            // overwrite the persisted selection during initial sync.
-            if (binding.field.key in setOf("character", "emotion") && rawValue.isBlank()) {
-                return@forEach
-            }
-            when (val result = SettingsSchema.edit(config, binding.field.key, rawValue)) {
-                is dev.breenottshook.ui.SchemaEditResult.Success -> config = result.config
-                is dev.breenottshook.ui.SchemaEditResult.Invalid -> return null
+        clearFieldErrors()
+        return when (val result = HostInputValidation.validate(
+            uiState.draft,
+            bindings.map { HostInputValue(it.field.key, it.readRawValue()) }
+        )) {
+            is HostValidationResult.Valid -> result.config
+            is HostValidationResult.Invalid -> {
+                showFieldError(result.field, result.message)
+                null
             }
         }
-        return config
     }
 
     private fun normalizeVoiceForPreview(config: TtsConfig): TtsConfig {
@@ -368,12 +361,21 @@ class HostSettingsContent(
     }
 
     private fun syncDraftToController(): Boolean {
-        val draft = currentDraft() ?: run {
-            toast(localized("请先修正输入格式", "Please correct the input first"))
-            return false
-        }
+        val draft = currentDraft() ?: return false
         controller.edit { draft }
         return true
+    }
+
+    private fun clearFieldErrors() {
+        bindings.forEach { binding ->
+            (binding.editor as? EditText)?.error = null
+        }
+    }
+
+    private fun showFieldError(key: String, message: String) {
+        val editor = binding(key)?.editor as? EditText ?: return
+        editor.error = message
+        if (!editor.hasFocus()) editor.requestFocus()
     }
 
     private fun renderState(next: SettingsUiState) = onMain {

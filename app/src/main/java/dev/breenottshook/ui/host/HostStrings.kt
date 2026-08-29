@@ -58,7 +58,8 @@ internal object HostStrings {
         "useManualVoice" to "使用手动音色", "manualCharacter" to "手动角色", "manualEmotion" to "手动情感",
         "textLanguage" to "文本语言", "audioFormat" to "音频格式", "topK" to "top_k", "topP" to "top_p",
         "temperature" to "temperature", "batchSize" to "batch_size", "speed" to "语速", "saveTemp" to "保存临时音频",
-        "stream" to "流式响应", "connectTimeoutMs" to "连接超时（毫秒）", "readTimeoutMs" to "读取超时（毫秒）",
+        "stream" to "流式响应", "maxConcurrentSynthesis" to "并发请求数量", "playbackIntervalMs" to "播放间隔（毫秒）",
+        "connectTimeoutMs" to "连接超时（毫秒）", "readTimeoutMs" to "读取超时（毫秒）",
         "fallbackToOriginal" to "失败时使用原 TTS", "strictMode" to "严格调试模式",
         "forceModulePlayer" to "强制模块播放器", "logLevel" to "日志级别", "testText" to "试听文本"
     )
@@ -68,7 +69,8 @@ internal object HostStrings {
         "useManualVoice" to "Use manual voice", "manualCharacter" to "Manual role", "manualEmotion" to "Manual emotion",
         "textLanguage" to "Text language", "audioFormat" to "Audio format", "topK" to "top_k", "topP" to "top_p",
         "temperature" to "temperature", "batchSize" to "batch_size", "speed" to "Speed", "saveTemp" to "Save temporary audio",
-        "stream" to "Stream response", "connectTimeoutMs" to "Connection timeout (ms)", "readTimeoutMs" to "Read timeout (ms)",
+        "stream" to "Stream response", "maxConcurrentSynthesis" to "Concurrent requests", "playbackIntervalMs" to "Playback interval (ms)",
+        "connectTimeoutMs" to "Connection timeout (ms)", "readTimeoutMs" to "Read timeout (ms)",
         "fallbackToOriginal" to "Use original TTS on failure", "strictMode" to "Strict diagnostics",
         "forceModulePlayer" to "Force module player", "logLevel" to "Log level", "testText" to "Preview text"
     )
@@ -79,6 +81,8 @@ internal object HostStrings {
         "manualCharacter" to "列表中没有时可填写", "manualEmotion" to "列表中没有时可填写",
         "textLanguage" to "发送文本的语言", "audioFormat" to "播放格式",
         "speed" to "1.0 为原速", "saveTemp" to "由服务端处理", "stream" to "边生成边播放",
+        "maxConcurrentSynthesis" to "必须大于 0；过大可能增加服务和内存压力",
+        "playbackIntervalMs" to "相邻句子静音时长，范围 0–5000",
         "connectTimeoutMs" to "允许范围 1000–120000", "readTimeoutMs" to "允许范围 1000–120000",
         "fallbackToOriginal" to "第三方失败时使用原音色", "strictMode" to "失败时显示详细错误",
         "forceModulePlayer" to "播放器兼容性调试", "logLevel" to "控制日志详细程度", "testText" to "用于连接测试和试听"
@@ -91,6 +95,8 @@ internal object HostStrings {
         "manualEmotion" to "Use when it is not in the list", "textLanguage" to "Language of the text",
         "audioFormat" to "Playback format", "speed" to "1.0 is normal speed",
         "saveTemp" to "Handled by the service", "stream" to "Play while generating",
+        "maxConcurrentSynthesis" to "Must be positive; high values increase server and memory load",
+        "playbackIntervalMs" to "Silence between sentences, from 0 to 5000",
         "connectTimeoutMs" to "Allowed range: 1000–120000", "readTimeoutMs" to "Allowed range: 1000–120000",
         "fallbackToOriginal" to "Use Breeno's voice if this fails", "strictMode" to "Show detailed errors",
         "forceModulePlayer" to "Player compatibility", "logLevel" to "Log detail level",
