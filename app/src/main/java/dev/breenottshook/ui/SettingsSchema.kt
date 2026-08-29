@@ -8,7 +8,7 @@ import dev.breenottshook.config.TtsConfig
 enum class SettingsSection(val title: String) {
     BASIC("基础"),
     VOICE("音色"),
-    ADVANCED("高级生成"),
+    ADVANCED("高级设置"),
     DEBUG("调试")
 }
 
@@ -55,6 +55,21 @@ object SettingsSchema {
         decimal("speed", "语速", "1.0 为原速", SettingsSection.VOICE, minimum = 0.0),
         boolean("saveTemp", "保存临时音频", "由服务端决定临时文件保存行为", SettingsSection.ADVANCED),
         boolean("stream", "流式响应", "边生成边解码播放", SettingsSection.ADVANCED),
+        integer(
+            "maxConcurrentSynthesis",
+            "并发请求数量",
+            "必须大于 0；数值过大可能增加服务和内存压力",
+            SettingsSection.ADVANCED,
+            minimum = 1.0
+        ),
+        integer(
+            "playbackIntervalMs",
+            "播放间隔（毫秒）",
+            "相邻句子之间的静音时长，范围 0–5000",
+            SettingsSection.ADVANCED,
+            minimum = 0.0,
+            maximum = 5_000.0
+        ),
         integer("connectTimeoutMs", "连接超时（毫秒）", "允许范围 1000–120000", SettingsSection.ADVANCED, 1_000.0, 120_000.0),
         integer("readTimeoutMs", "读取超时（毫秒）", "允许范围 1000–120000", SettingsSection.ADVANCED, 1_000.0, 120_000.0),
         boolean("fallbackToOriginal", "失败时使用原 TTS", "仅在第三方音频开始播放前允许回退", SettingsSection.BASIC),
@@ -116,6 +131,12 @@ object SettingsSchema {
                     ?: invalid("请输入 true 或 false")
                 "stream" -> booleanValue()?.let { success(config.copy(stream = it)) }
                     ?: invalid("请输入 true 或 false")
+                "maxConcurrentSynthesis" -> rawValue.toIntOrNull()
+                    ?.let { success(config.copy(maxConcurrentSynthesis = it)) }
+                    ?: invalid("请输入整数")
+                "playbackIntervalMs" -> rawValue.toLongOrNull()
+                    ?.let { success(config.copy(playbackIntervalMs = it)) }
+                    ?: invalid("请输入整数")
                 "connectTimeoutMs" -> rawValue.toLongOrNull()?.let { success(config.copy(connectTimeoutMs = it)) }
                     ?: invalid("请输入整数")
                 "readTimeoutMs" -> rawValue.toLongOrNull()?.let { success(config.copy(readTimeoutMs = it)) }

@@ -28,6 +28,8 @@ class SettingsSchemaTest {
             "speed",
             "saveTemp",
             "stream",
+            "maxConcurrentSynthesis",
+            "playbackIntervalMs",
             "connectTimeoutMs",
             "readTimeoutMs",
             "fallbackToOriginal",
@@ -40,6 +42,29 @@ class SettingsSchemaTest {
         assertEquals(expectedKeys, SettingsSchema.fields.map { it.key }.toSet())
         assertEquals(expectedKeys.size, SettingsSchema.fields.size)
         assertTrue(SettingsSchema.fields.all { it.hostEditorSupported })
+    }
+
+    @Test
+    fun `advanced queue settings use shared title and typed edits`() {
+        assertEquals("高级设置", SettingsSection.ADVANCED.title)
+
+        val concurrency = SettingsSchema.edit(
+            TtsConfig(),
+            "maxConcurrentSynthesis",
+            "12"
+        ) as SchemaEditResult.Success
+        val interval = SettingsSchema.edit(
+            concurrency.config,
+            "playbackIntervalMs",
+            "450"
+        ) as SchemaEditResult.Success
+
+        assertEquals(12, interval.config.maxConcurrentSynthesis)
+        assertEquals(450L, interval.config.playbackIntervalMs)
+        assertEquals(
+            SchemaEditResult.Invalid("maxConcurrentSynthesis", "请输入整数"),
+            SettingsSchema.edit(TtsConfig(), "maxConcurrentSynthesis", "")
+        )
     }
 
     @Test

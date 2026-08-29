@@ -66,6 +66,33 @@ class ConfigValidatorTest {
     }
 
     @Test
+    fun `queue settings use safe defaults`() {
+        assertEquals(3, TtsConfig().maxConcurrentSynthesis)
+        assertEquals(0L, TtsConfig().playbackIntervalMs)
+    }
+
+    @Test
+    fun `accepts positive concurrency without an upper bound`() {
+        assertTrue(
+            ConfigValidator.validate(
+                TtsConfig(maxConcurrentSynthesis = Int.MAX_VALUE)
+            ) is ValidationResult.Valid
+        )
+        assertInvalid("maxConcurrentSynthesis", TtsConfig(maxConcurrentSynthesis = 0))
+    }
+
+    @Test
+    fun `validates playback interval`() {
+        assertTrue(
+            ConfigValidator.validate(
+                TtsConfig(playbackIntervalMs = 5_000)
+            ) is ValidationResult.Valid
+        )
+        assertInvalid("playbackIntervalMs", TtsConfig(playbackIntervalMs = -1))
+        assertInvalid("playbackIntervalMs", TtsConfig(playbackIntervalMs = 5_001))
+    }
+
+    @Test
     fun `codec round trip preserves every user setting`() {
         val expected = TtsConfig(
             enabled = true,
@@ -84,6 +111,8 @@ class ConfigValidatorTest {
             speed = 1.15,
             saveTemp = true,
             stream = false,
+            maxConcurrentSynthesis = 12,
+            playbackIntervalMs = 450,
             connectTimeoutMs = 7_000,
             readTimeoutMs = 90_000,
             fallbackToOriginal = false,

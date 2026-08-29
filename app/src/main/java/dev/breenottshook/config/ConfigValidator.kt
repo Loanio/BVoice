@@ -31,6 +31,12 @@ object ConfigValidator {
             if (!config.temperature.isFinite() || config.temperature <= 0.0) {
                 add(ConfigIssue("temperature", "temperature 必须大于 0"))
             }
+            if (config.maxConcurrentSynthesis < 1) {
+                add(ConfigIssue("maxConcurrentSynthesis", "并发请求数量必须大于 0"))
+            }
+            if (config.playbackIntervalMs !in 0L..5_000L) {
+                add(ConfigIssue("playbackIntervalMs", "播放间隔必须位于 0 到 5000 毫秒"))
+            }
             if (config.connectTimeoutMs !in MIN_TIMEOUT_MS..MAX_TIMEOUT_MS) {
                 add(ConfigIssue("connectTimeoutMs", "连接超时必须位于 1 到 120 秒"))
             }

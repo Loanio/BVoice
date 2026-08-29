@@ -20,6 +20,8 @@ data class TtsConfig(
     val speed: Double = 1.0,
     val saveTemp: Boolean = false,
     val stream: Boolean = true,
+    val maxConcurrentSynthesis: Int = 3,
+    val playbackIntervalMs: Long = 0,
     val connectTimeoutMs: Long = 5_000,
     val readTimeoutMs: Long = 60_000,
     val fallbackToOriginal: Boolean = true,
