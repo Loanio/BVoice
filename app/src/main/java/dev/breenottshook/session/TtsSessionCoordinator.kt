@@ -3,6 +3,8 @@ package dev.breenottshook.session
 import dev.breenottshook.api.GptSovitsClient
 import dev.breenottshook.audio.DecodeFinish
 import dev.breenottshook.audio.PcmFormat
+import dev.breenottshook.audio.PcmSegment
+import dev.breenottshook.audio.PcmSilence
 import dev.breenottshook.audio.StreamingWavDecoder
 import dev.breenottshook.config.TtsConfig
 import dev.breenottshook.playback.AudioSink
@@ -10,11 +12,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -52,6 +57,11 @@ class TtsSessionCoordinator(
         val terminal: AtomicBoolean,
         val sinkCancelled: AtomicBoolean,
         var job: Job? = null
+    )
+
+    private data class PlaybackState(
+        var openedFormat: PcmFormat? = null,
+        var played: Boolean = false
     )
 
     private val mutex = Mutex()
@@ -120,45 +130,15 @@ class TtsSessionCoordinator(
     }
 
     private suspend fun runSession(session: ActiveSession, config: TtsConfig) {
-        var openedFormat: PcmFormat? = null
-        var played = false
+        val playback = PlaybackState()
         try {
             mutableState.value = TtsSessionState.Buffering(session.generation)
-            session.utterances.forEach { utterance ->
-                ensureCurrent(session.generation)
-                val decoder = StreamingWavDecoder()
-                var utterancePlayed = false
-                synthesisEngine.synthesize(utterance.text, config) { bytes ->
-                    if (!isCurrent(session.generation)) return@synthesize
-                    for (segment in decoder.feed(bytes)) {
-                        ensureCurrent(session.generation)
-                        if (session.reportUtteranceProgress && segment.bytes.isEmpty()) continue
-                        if (openedFormat != segment.format) {
-                            session.sink.open(segment.format)
-                            openedFormat = segment.format
-                        }
-                        ensureCurrent(session.generation)
-                        session.sink.write(segment)
-                        ensureCurrent(session.generation)
-                        if (!utterancePlayed) {
-                            utterancePlayed = true
-                            if (session.reportUtteranceProgress) {
-                                session.callbacks.onUtteranceStarted(utterance)
-                            }
-                        }
-                        ensureCurrent(session.generation)
-                        if (!played) {
-                            played = true
-                            mutableState.value = TtsSessionState.Playing(session.generation)
-                            session.callbacks.onStarted()
-                        }
-                    }
-                }
-                ensureCurrent(session.generation)
-                check(decoder.finish() == DecodeFinish.Complete) { "Truncated WAV response" }
-                check(utterancePlayed) { "Synthesis produced no playable PCM" }
+            if (session.reportUtteranceProgress) {
+                runConcurrentStream(session, config, playback)
+            } else {
+                runImmediateUtterance(session, session.utterances.single(), config, playback)
             }
-            check(played) { "Synthesis produced no playable PCM" }
+            check(playback.played) { "Synthesis produced no playable PCM" }
             session.sink.complete()
             if (session.terminal.compareAndSet(false, true)) {
                 session.callbacks.onCompleted()
@@ -176,7 +156,7 @@ class TtsSessionCoordinator(
         } catch (error: Throwable) {
             cancelSinkOnce(session)
             if (session.terminal.compareAndSet(false, true)) {
-                if (!played && config.fallbackToOriginal && !config.strictMode) {
+                if (!playback.played && config.fallbackToOriginal && !config.strictMode) {
                     mutableState.value = TtsSessionState.Failed(session.generation, "fallback")
                     session.originalCall.resume()
                 } else {
@@ -191,6 +171,140 @@ class TtsSessionCoordinator(
             mutex.withLock {
                 if (active?.generation == session.generation) active = null
             }
+        }
+    }
+
+    private suspend fun runImmediateUtterance(
+        session: ActiveSession,
+        utterance: TtsUtterance,
+        config: TtsConfig,
+        playback: PlaybackState
+    ) {
+        ensureCurrent(session.generation)
+        val decoder = StreamingWavDecoder()
+        var utterancePlayed = false
+        synthesisEngine.synthesize(utterance.text, config) { bytes ->
+            if (!isCurrent(session.generation)) return@synthesize
+            for (segment in decoder.feed(bytes)) {
+                if (segment.bytes.isEmpty()) continue
+                writeSegment(session, segment, playback)
+                utterancePlayed = true
+            }
+        }
+        ensureCurrent(session.generation)
+        check(decoder.finish() == DecodeFinish.Complete) { "Truncated WAV response" }
+        check(utterancePlayed) { "Synthesis produced no playable PCM" }
+    }
+
+    private suspend fun runConcurrentStream(
+        session: ActiveSession,
+        config: TtsConfig,
+        playback: PlaybackState
+    ) = supervisorScope {
+        val utterances = session.utterances
+        check(utterances.isNotEmpty()) { "Stream contains no utterances" }
+        val windowSize = minOf(config.maxConcurrentSynthesis, utterances.size)
+        check(windowSize > 0) { "Synthesis concurrency must be positive" }
+        val jobs = MutableList<Deferred<Result<PreparedUtterance>>?>(utterances.size) { null }
+
+        fun launchPreparation(position: Int): Deferred<Result<PreparedUtterance>> = async {
+            try {
+                Result.success(prepareUtterance(session, utterances[position], config))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Throwable) {
+                Result.failure(error)
+            }
+        }
+
+        repeat(windowSize) { position ->
+            jobs[position] = launchPreparation(position)
+        }
+
+        try {
+            utterances.indices.forEach { position ->
+                ensureCurrent(session.generation)
+                val prepared = checkNotNull(jobs[position]).await().getOrThrow()
+                val nextPosition = position + windowSize
+                if (nextPosition < utterances.size) {
+                    jobs[nextPosition] = launchPreparation(nextPosition)
+                }
+                playPrepared(
+                    session = session,
+                    prepared = prepared,
+                    config = config,
+                    playback = playback,
+                    hasNext = position < utterances.lastIndex
+                )
+            }
+        } finally {
+            jobs.filterNotNull().forEach { job ->
+                if (job.isActive) job.cancel()
+            }
+        }
+    }
+
+    private suspend fun prepareUtterance(
+        session: ActiveSession,
+        utterance: TtsUtterance,
+        config: TtsConfig
+    ): PreparedUtterance {
+        val decoder = StreamingWavDecoder()
+        val segments = mutableListOf<PcmSegment>()
+        synthesisEngine.synthesize(utterance.text, config) { bytes ->
+            ensureCurrent(session.generation)
+            segments += decoder.feed(bytes)
+        }
+        ensureCurrent(session.generation)
+        check(decoder.finish() == DecodeFinish.Complete) { "Truncated WAV response" }
+        check(segments.any { it.bytes.isNotEmpty() }) { "Synthesis produced no playable PCM" }
+        return PreparedUtterance(utterance, segments)
+    }
+
+    private suspend fun playPrepared(
+        session: ActiveSession,
+        prepared: PreparedUtterance,
+        config: TtsConfig,
+        playback: PlaybackState,
+        hasNext: Boolean
+    ) {
+        var utteranceStarted = false
+        var lastFormat: PcmFormat? = null
+        prepared.segments.forEach { segment ->
+            if (segment.bytes.isEmpty()) return@forEach
+            writeSegment(session, segment, playback)
+            lastFormat = segment.format
+            if (!utteranceStarted) {
+                utteranceStarted = true
+                session.callbacks.onUtteranceStarted(prepared.utterance)
+            }
+        }
+        check(utteranceStarted) { "Synthesis produced no playable PCM" }
+        if (hasNext) {
+            PcmSilence.create(checkNotNull(lastFormat), config.playbackIntervalMs)?.let { silence ->
+                writeSegment(session, silence, playback, reportStarted = false)
+            }
+        }
+    }
+
+    private suspend fun writeSegment(
+        session: ActiveSession,
+        segment: PcmSegment,
+        playback: PlaybackState,
+        reportStarted: Boolean = true
+    ) {
+        ensureCurrent(session.generation)
+        if (playback.openedFormat != segment.format) {
+            session.sink.open(segment.format)
+            playback.openedFormat = segment.format
+        }
+        ensureCurrent(session.generation)
+        session.sink.write(segment)
+        ensureCurrent(session.generation)
+        if (reportStarted && !playback.played) {
+            playback.played = true
+            mutableState.value = TtsSessionState.Playing(session.generation)
+            session.callbacks.onStarted()
         }
     }
 

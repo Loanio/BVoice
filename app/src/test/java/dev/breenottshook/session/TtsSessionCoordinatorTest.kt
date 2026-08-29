@@ -10,6 +10,7 @@ import java.io.IOException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -153,11 +154,202 @@ class TtsSessionCoordinatorTest {
 
         assertEquals(
             listOf(
-                "synthesize:first", "write:1", "started:3",
-                "synthesize:second", "write:2", "started:7", "completed"
+                "synthesize:first", "synthesize:second",
+                "write:1", "started:3", "write:2", "started:7", "completed"
             ),
             events
         )
+    }
+
+    @Test
+    fun `stream starts the next synthesis while the current utterance write is blocked`() = runTest {
+        val firstWriteEntered = CompletableDeferred<Unit>()
+        val releaseFirstWrite = CompletableDeferred<Unit>()
+        val synthesized = mutableListOf<String>()
+        val callbacks = RecordingCallbacks()
+        val coordinator = coordinator(
+            config = TtsConfig(maxConcurrentSynthesis = 2),
+            sink = BlockingFirstWriteSink(firstWriteEntered, releaseFirstWrite),
+            engine = SynthesisEngine { text, _, onBytes ->
+                synthesized += text
+                onBytes(WavFixtures.pcmWav(byteArrayOf(text.first().code.toByte(), 0)))
+            }
+        )
+
+        coordinator.submitStream(
+            utterances("a", "b", "c", "d"),
+            callbacks,
+            OriginalCall { error("original fallback") }
+        )
+        firstWriteEntered.await()
+        runCurrent()
+
+        assertEquals(listOf("a", "b", "c"), synthesized)
+
+        releaseFirstWrite.complete(Unit)
+        advanceUntilIdle()
+        assertEquals(1, callbacks.completeCount)
+    }
+
+    @Test
+    fun `stream never exceeds configured synthesis concurrency`() = runTest {
+        val gates = (1..4).associateWith { CompletableDeferred<Unit>() }
+        val started = mutableListOf<Int>()
+        var active = 0
+        var maxActive = 0
+        val coordinator = coordinator(
+            config = TtsConfig(maxConcurrentSynthesis = 2),
+            sink = RecordingSink(),
+            engine = SynthesisEngine { text, _, onBytes ->
+                val number = text.toInt()
+                active++
+                maxActive = maxOf(maxActive, active)
+                started += number
+                try {
+                    gates.getValue(number).await()
+                    onBytes(WavFixtures.pcmWav(byteArrayOf(number.toByte(), 0)))
+                } finally {
+                    active--
+                }
+            }
+        )
+
+        coordinator.submitStream(
+            utterances("1", "2", "3", "4"),
+            RecordingCallbacks(),
+            OriginalCall { error("original fallback") }
+        )
+        runCurrent()
+        assertEquals(listOf(1, 2), started)
+
+        gates.getValue(1).complete(Unit)
+        runCurrent()
+        assertEquals(listOf(1, 2, 3), started)
+
+        gates.getValue(2).complete(Unit)
+        runCurrent()
+        assertEquals(listOf(1, 2, 3, 4), started)
+
+        gates.getValue(3).complete(Unit)
+        gates.getValue(4).complete(Unit)
+        advanceUntilIdle()
+        assertEquals(2, maxActive)
+    }
+
+    @Test
+    fun `out of order synthesis completion still writes and reports in source order`() = runTest {
+        val gates = (1..3).associateWith { CompletableDeferred<Unit>() }
+        val sink = RecordingSink()
+        val callbacks = RecordingCallbacks()
+        val coordinator = coordinator(
+            config = TtsConfig(maxConcurrentSynthesis = 3),
+            sink = sink,
+            engine = SynthesisEngine { text, _, onBytes ->
+                val number = text.toInt()
+                gates.getValue(number).await()
+                onBytes(WavFixtures.pcmWav(byteArrayOf(number.toByte(), 0)))
+            }
+        )
+
+        coordinator.submitStream(
+            utterances("1", "2", "3"),
+            callbacks,
+            OriginalCall { error("original fallback") }
+        )
+        runCurrent()
+        gates.getValue(3).complete(Unit)
+        gates.getValue(2).complete(Unit)
+        runCurrent()
+        assertTrue(sink.bytes.isEmpty())
+
+        gates.getValue(1).complete(Unit)
+        advanceUntilIdle()
+
+        assertArrayEquals(byteArrayOf(1, 0, 2, 0, 3, 0), sink.bytes.toByteArray())
+        assertEquals(listOf(0, 1, 2), callbacks.utteranceStarts)
+    }
+
+    @Test
+    fun `unbounded configured concurrency starts only the available utterances`() = runTest {
+        val synthesized = mutableListOf<String>()
+        val coordinator = coordinator(
+            config = TtsConfig(maxConcurrentSynthesis = Int.MAX_VALUE),
+            sink = RecordingSink(),
+            engine = SynthesisEngine { text, _, onBytes ->
+                synthesized += text
+                onBytes(WavFixtures.pcmWav(byteArrayOf(1, 0)))
+            }
+        )
+
+        coordinator.submitStream(
+            utterances("a", "b", "c", "d"),
+            RecordingCallbacks(),
+            OriginalCall { error("original fallback") }
+        )
+        advanceUntilIdle()
+
+        assertEquals(listOf("a", "b", "c", "d"), synthesized)
+    }
+
+    @Test
+    fun `cancelling a concurrent stream cancels every in flight synthesis`() = runTest {
+        val started = mutableListOf<String>()
+        var cancelled = 0
+        val sink = RecordingSink()
+        val callbacks = RecordingCallbacks()
+        val coordinator = coordinator(
+            config = TtsConfig(maxConcurrentSynthesis = 3),
+            sink = sink,
+            engine = SynthesisEngine { text, _, _ ->
+                started += text
+                try {
+                    CompletableDeferred<Unit>().await()
+                } finally {
+                    cancelled++
+                }
+            }
+        )
+
+        coordinator.submitStream(
+            utterances("a", "b", "c", "d"),
+            callbacks,
+            OriginalCall { error("original fallback") }
+        )
+        runCurrent()
+        assertEquals(listOf("a", "b", "c"), started)
+
+        coordinator.cancelActive("user cancelled")
+        advanceUntilIdle()
+
+        assertEquals(3, cancelled)
+        assertEquals(1, callbacks.cancelCount)
+        assertEquals(1, sink.cancelCount)
+        assertEquals(listOf("a", "b", "c"), started)
+    }
+
+    @Test
+    fun `stream inserts configured silence only between utterances`() = runTest {
+        val sink = RecordingSink()
+        val coordinator = coordinator(
+            config = TtsConfig(maxConcurrentSynthesis = 2, playbackIntervalMs = 1),
+            sink = sink,
+            engine = SynthesisEngine { text, _, onBytes ->
+                val value = if (text == "first") 1 else 2
+                onBytes(WavFixtures.pcmWav(byteArrayOf(value.toByte(), 0)))
+            }
+        )
+
+        coordinator.submitStream(
+            utterances("first", "second"),
+            RecordingCallbacks(),
+            OriginalCall { error("original fallback") }
+        )
+        advanceUntilIdle()
+
+        assertEquals(52, sink.bytes.size)
+        assertEquals(listOf<Byte>(1, 0), sink.bytes.take(2))
+        assertTrue(sink.bytes.subList(2, 50).all { it == 0.toByte() })
+        assertEquals(listOf<Byte>(2, 0), sink.bytes.takeLast(2))
     }
 
     @Test
@@ -183,6 +375,7 @@ class TtsSessionCoordinatorTest {
             OriginalCall { error("original fallback") }
         )
         secondEntered.await()
+        runCurrent()
 
         assertEquals(listOf(0), callbacks.utteranceStarts)
         assertEquals(0, callbacks.completeCount)
@@ -218,6 +411,7 @@ class TtsSessionCoordinatorTest {
             OriginalCall { error("original fallback") }
         )
         secondEntered.await()
+        runCurrent()
         coordinator.cancelActive("user cancelled")
         advanceUntilIdle()
 
@@ -436,6 +630,9 @@ class TtsSessionCoordinatorTest {
         callbacks = callbacks
     )
 
+    private fun utterances(vararg texts: String): List<TtsUtterance> =
+        texts.mapIndexed { index, text -> TtsUtterance(index, text) }
+
     private class RecordingSink(private val events: MutableList<String>? = null) : AudioSink {
         var openedFormat: PcmFormat? = null
         val bytes = mutableListOf<Byte>()
@@ -503,6 +700,26 @@ class TtsSessionCoordinatorTest {
                 }
             }
             bytes += segment.bytes.toList()
+        }
+
+        override suspend fun complete() = Unit
+        override suspend fun cancel() = Unit
+    }
+
+    private class BlockingFirstWriteSink(
+        private val firstWriteEntered: CompletableDeferred<Unit>,
+        private val releaseFirstWrite: CompletableDeferred<Unit>
+    ) : AudioSink {
+        private var firstWrite = true
+
+        override suspend fun open(format: PcmFormat) = Unit
+
+        override suspend fun write(segment: PcmSegment) {
+            if (firstWrite) {
+                firstWrite = false
+                firstWriteEntered.complete(Unit)
+                releaseFirstWrite.await()
+            }
         }
 
         override suspend fun complete() = Unit
